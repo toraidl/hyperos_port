@@ -45,7 +45,7 @@
     pkg update
     pkg upgrade
     pkg install -y git tsu
-    pkg install -y aria2 python3 busybox zip unzip openjdk-8-jre-headless
+    pkg install -y aria2 python busybox zip unzip openjdk-17
     tsu
     git clone https://github.com/ljc-fight/miui_port.git
     cd miui_port/
