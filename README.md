@@ -37,7 +37,7 @@
     # 安装依赖
     sudo bash setup.sh
     # 开始移植
-    sudo bash miui_port.sh <底包路径> <移植包路径>
+    sudo bash port.sh <底包路径> <移植包路径>
 ```
 
 - 在Termux上
@@ -49,6 +49,6 @@
     tsu
     git clone https://github.com/ljc-fight/miui_port.git
     cd miui_port/
-    bash miui_port.sh <底包路径> <移植包路径>
+    bash port.sh <底包路径> <移植包路径>
 ```
 - 上述代码中，底包路径和移植包路径可以替换为链接
