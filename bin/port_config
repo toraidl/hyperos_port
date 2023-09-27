@@ -1,0 +1,14 @@
+# 需要移植的分区
+partition_to_port=system product system_ext
+
+
+# 可能的super子分区列表
+super_list=vendor mi_ext odm odm_dlkm system system_dlkm vendor_dlkm product product_dlkm system_ext
+
+
+# 打包为 ext4 文件系统（如果底包是erofs） true:是  false:否    意义：解锁system
+repack_with_ext4=true
+
+
+# 去除data加密   true:是  false:否
+remove_data_encryption=true
