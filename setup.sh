@@ -15,9 +15,9 @@ if [ "$(uname -m)" == "x86_64" ];then
     fi
 fi
 
-# if [ "$(uname -m)" == "aarch64" ];then
-#     echo "Device arch: aarch64"
-#     apt update -y
-#     apt upgrade -y
-#     apt install -y python3 busybox zip unzip
-# fi
+if [ "$(uname -m)" == "aarch64" ];then
+    echo "Device arch: aarch64"
+    apt update -y
+    apt upgrade -y
+    apt install -y python busybox zip unzip p7zip openjdk-17
+fi

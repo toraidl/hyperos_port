@@ -86,6 +86,7 @@ rm -rf app
 rm -rf config
 rm -rf BASEROM/
 rm -rf PORTROM/
+find . -type d -name 'PORT_*' |xargs rm -rf
 mkdir -p BASEROM/images/
 mkdir -p BASEROM/config/
 mkdir -p PORTROM/images/
@@ -182,6 +183,11 @@ base_rom_version=$(cat BASEROM/images/vendor/build.prop |grep "ro.vendor.build.v
 port_rom_version=$(cat BASEROM/images/system/system/build.prop |grep "ro.system.build.version.incremental" |awk 'NR==1' |cut -d '=' -f 2)
 Green "ROM 版本: 底包为 [${base_rom_version}], 移植包为 [${port_rom_version}]"
 
+# MIUI版本
+base_miui_version=$(cat BASEROM/images/product_bak/etc/build.prop |grep "ro.miui.ui.version.code" |awk 'NR==1' |cut -d '=' -f 2)
+port_miui_version=$(cat BASEROM/images/product/etc/build.prop |grep "ro.miui.ui.version.code" |awk 'NR==1' |cut -d '=' -f 2)
+Green "MIUI版本: 底包为 [${base_miui_version}], 移植包为 [${port_miui_version}]"
+
 # 代号
 base_rom_code=$(cat BASEROM/images/vendor/build.prop |grep "ro.product.vendor.device" |awk 'NR==1' |cut -d '=' -f 2)
 port_rom_code=$(cat BASEROM/images/system/system/build.prop |grep "ro.product.system.device" |awk 'NR==1' |cut -d '=' -f 2)
@@ -230,6 +236,13 @@ if [ -f "${baseAospFrameworkResOverlay}" ] && [ -f "${portAospFrameworkResOverla
     cp -rf ${baseAospFrameworkResOverlay} ${portAospFrameworkResOverlay}
 fi
 
+baseMiuiFrameworkResOverlay=$(find BASEROM/images/product_bak/ -type f -name "MiuiFrameworkResOverlay.apk")
+portMiuiFrameworkResOverlay=$(find BASEROM/images/product/ -type f -name "MiuiFrameworkResOverlay.apk")
+if [ -f "${baseMiuiFrameworkResOverlay}" ] && [ -f "${portMiuiFrameworkResOverlay}" ];then
+    Yellow "正在替换 [MiuiFrameworkResOverlay.apk]"
+    cp -rf ${baseMiuiFrameworkResOverlay} ${portMiuiFrameworkResOverlay}
+fi
+
 baseAospWifiResOverlay=$(find BASEROM/images/product_bak/ -type f -name "AospWifiResOverlay.apk")
 portAospWifiResOverlay=$(find BASEROM/images/product/ -type f -name "AospWifiResOverlay.apk")
 if [ -f "${baseAospWifiResOverlay}" ] && [ -f "${portAospWifiResOverlay}" ];then
@@ -257,6 +270,38 @@ if [ -f "${baseMiuiBiometricResOverlay}" ] && [ -f "${portMiuiBiometricResOverla
     Yellow "正在替换 [MiuiBiometricResOverlay.apk]"
     cp -rf ${baseMiuiBiometricResOverlay} ${portMiuiBiometricResOverlay}
 fi
+
+# radio lib
+# Yellow "信号相关"
+# for radiolib in $(find BASEROM/images/system_bak/system/lib/ -maxdepth 1 -type f -name "*radio*");do
+#     cp -rf $radiolib BASEROM/images/system/system/lib/
+# done
+
+# for radiolib in $(find BASEROM/images/system_bak/system/lib64/ -maxdepth 1 -type f -name "*radio*");do
+#     cp -rf $radiolib BASEROM/images/system/system/lib64/
+# done
+
+
+# audio lib
+# Yellow "音频相关"
+# for audiolib in $(find BASEROM/images/system_bak/system/lib/ -maxdepth 1 -type f -name "*audio*");do
+#     cp -rf $audiolib BASEROM/images/system/system/lib/
+# done
+
+# for audiolib in $(find BASEROM/images/system_bak/system/lib64/ -maxdepth 1 -type f -name "*audio*");do
+#     cp -rf $audiolib BASEROM/images/system/system/lib64/
+# done
+
+# # bt lib
+# Yellow "蓝牙相关"
+# for btlib in $(find BASEROM/images/system_bak/system/lib/ -maxdepth 1 -type f -name "*bluetooth*");do
+#     cp -rf $btlib BASEROM/images/system/system/lib/
+# done
+
+# for btlib in $(find BASEROM/images/system_bak/system/lib64/ -maxdepth 1 -type f -name "*bluetooth*");do
+#     cp -rf $btlib BASEROM/images/system/system/lib64/
+# done
+
 
 # displayconfig id
 Yellow "正在替换 displayconfig"
@@ -298,6 +343,15 @@ if [ -d "${baseMiSound}" ] && [ -d "${portMiSound}" ];then
     Yellow "正在替换 MiSound"
     rm -rf ./${portMiSound}/*
     cp -rf ./${baseMiSound}/* ${portMiSound}/
+fi
+
+# MusicFX
+baseMusicFX=$(find BASEROM/images/product_bak/ BASEROM/images/system_bak/ -type d -name "MusicFX")
+portMusicFX=$(find BASEROM/images/product/ BASEROM/images/system/ -type d -name "MusicFX")
+if [ -d "${baseMusicFX}" ] && [ -d "${portMusicFX}" ];then
+    Yellow "正在替换 MusicFX"
+    rm -rf ./${portMusicFX}/*
+    cp -rf ./${baseMusicFX}/* ${portMusicFX}/
 fi
 
 # 人脸
@@ -365,6 +419,31 @@ for file in $(find BASEROM/images/product/app BASEROM/images/product/priv-app -t
 done
 
 for file in $(find BASEROM/images/product/app BASEROM/images/product/priv-app -type f);do
+    echo>>BASEROM/config/product_file_contexts
+    echo>>BASEROM/config/product_fs_config
+    echo "$file u:object_r:system_file:s0" |sed 's/BASEROM\/images//g' |sed 's/\./\\\./g' >>BASEROM/config/product_file_contexts
+    echo "$file 0 0 644" |sed 's/BASEROM\/images\///g' >>BASEROM/config/product_fs_config
+done
+
+
+# lib file u:object_r:system_lib_file:s0
+
+for lib in $(find BASEROM/images/system/system/lib/ BASEROM/images/system/system/lib64/ -maxdepth 1 -type f);do
+    echo>>BASEROM/config/system_file_contexts
+    echo>>BASEROM/config/system_fs_config
+    echo "$lib u:object_r:system_lib_file:s0" |sed 's/BASEROM\/images//g' |sed 's/\./\\\./g' >>BASEROM/config/system_file_contexts
+    echo "$lib 0 0 0644" |sed 's/BASEROM\/images\///g' >>BASEROM/config/system_fs_config
+done
+
+cp -rf BASEROM/images/product_bak/overlay/* BASEROM/images/product/overlay/
+for file in $(find BASEROM/images/product/overlay -type d);do
+    echo>>BASEROM/config/product_file_contexts
+    echo>>BASEROM/config/product_fs_config
+    echo "$file u:object_r:system_file:s0" |sed 's/BASEROM\/images//g' |sed 's/\./\\\./g' >>BASEROM/config/product_file_contexts
+    echo "$file 0 0 0755" |sed 's/BASEROM\/images\///g' >>BASEROM/config/product_fs_config
+done
+
+for file in $(find BASEROM/images/product/overlay -type f);do
     echo>>BASEROM/config/product_file_contexts
     echo>>BASEROM/config/product_fs_config
     echo "$file u:object_r:system_file:s0" |sed 's/BASEROM\/images//g' |sed 's/\./\\\./g' >>BASEROM/config/product_file_contexts
@@ -495,14 +574,34 @@ for i in $(find BASEROM/images/ -type f -name "build.prop");do
     sed -i "s/ro.product.board=.*/ro.product.board=${base_rom_code}/g" ${i}
     sed -i "s/ro.product.system_ext.device=.*/ro.product.system_ext.device=${base_rom_code}/g" ${i}
     sed -i "s/persist.sys.timezone=.*/persist.sys.timezone=Asia\/Shanghai/g" ${i}
+    sed -i "s/ro.product.mod_device=.*/ro.product.mod_device=${base_rom_code}/g" ${i}
 done
 
 sed -i '$a\persist.adb.notify=0' BASEROM/images/system/system/build.prop
 sed -i '$a\persist.sys.usb.config=mtp,adb' BASEROM/images/system/system/build.prop
 sed -i '$a\persist.sys.disable_rescue=true' BASEROM/images/system/system/build.prop
+sed -i '$a\persist.miui.extm.enable=0' BASEROM/images/system/system/build.prop
+
+# 屏幕密度修修改
+for prop in $(find BASEROM/images/product_bak BASEROM/images/system_bak -type f -name "build.prop");do
+    base_rom_density=$(cat $prop |grep "ro.sf.lcd_density" |awk 'NR==1' |cut -d '=' -f 2)
+    if [ "${base_rom_density}" != "" ];then
+        Green "底包屏幕密度值 ${base_rom_density}"
+        break
+    fi
+done
+
+# 未在底包找到则默认440,如果是其他值可自己修改
+[ -z ${base_rom_density} ] && base_rom_density=440
+
+for prop in $(find BASEROM/images/product_bak BASEROM/images/system_bak -type f -name "build.prop");do
+    sed -i "s/ro.sf.lcd_density=.*/ro.sf.lcd_density=${base_rom_density}/g" ${prop}
+    sed -i "s/persist.miui.density_v2=.*/persist.miui.density_v2=${base_rom_density}/g" ${prop}
+done
+
 
 vendorprop=$(find BASEROM/images/vendor/ -type f -name "build.prop")
-odmprop=$(find BASEROM/images/odm/ -type f -name "build.prop")
+odmprop=$(find BASEROM/images/odm/ -type f -name "build.prop" |awk 'NR==1')
 if [ "$(cat $vendorprop |grep "sys.haptic" |awk 'NR==1')" != "" ];then
     Yellow "复制 haptic prop 到 odm"
     cat $vendorprop |grep "sys.haptic" >>${odmprop}
@@ -579,6 +678,7 @@ done
 rm fstype.txt
 
 
+read
 
 # 打包 super.img
 Yellow 开始打包Super.img
@@ -625,6 +725,7 @@ mv -f BASEROM/images/*.img PORT_${deviceCode}_${port_rom_version}/images/
 cp -rf bin/flash/zstd PORT_${deviceCode}_${port_rom_version}/META-INF/
 
 # 生成刷机脚本
+Yellow "正在生成刷机脚本"
 for fwImg in $(ls PORT_${deviceCode}_${port_rom_version}/images/ |cut -d "." -f 1 |grep -vE "super|cust|preloader");do
     if [ "$(echo $fwImg |grep vbmeta)" != "" ];then
         sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_b images\/"$fwImg".img" PORT_${deviceCode}_${port_rom_version}/flash_update.bat
@@ -658,4 +759,6 @@ zip -r PORT_${deviceCode}_${port_rom_version}.zip ./*
 mv PORT_${deviceCode}_${port_rom_version}.zip ../
 cd ../
 hash=$(md5sum PORT_${deviceCode}_${port_rom_version}.zip |head -c 10)
-mv PORT_${deviceCode}_${port_rom_version}.zip PORT_${deviceCode}_${port_rom_version}_${hash}.zip
+mv PORT_${deviceCode}_${port_rom_version}.zip PORT_${deviceCode}_${port_rom_version}_${hash}_${port_android_version}.zip
+Green "移植完毕"
+Green "输出包为 $(pwd)/PORT_${deviceCode}_${port_rom_version}_${hash}_${port_android_version}.zip"

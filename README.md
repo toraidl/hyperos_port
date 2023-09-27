@@ -32,23 +32,30 @@
 ## 如何使用
 - 在WSL、ubuntu、deepin等Linux下
 ```shell
+    sudo apt update
+    sudo apt upgrade
+    sudo apt install git -y
+    # 克隆项目
     git clone https://github.com/ljc-fight/miui_port.git
     cd miui_port
     # 安装依赖
     sudo bash setup.sh
     # 开始移植
-    sudo bash port.sh <底包路径> <移植包路径>
+    sudo bash miui_port.sh <底包路径> <移植包路径>
 ```
 
 - 在Termux上
 ```shell
     pkg update
     pkg upgrade
-    pkg install -y git tsu
-    pkg install -y aria2 python busybox zip unzip openjdk-17 p7zip
-    tsu
+    pkg install git tsu -y
+    # 克隆项目
     git clone https://github.com/ljc-fight/miui_port.git
     cd miui_port/
-    bash port.sh <底包路径> <移植包路径>
+    # 安装依赖
+    bash setup.sh
+    # 进入root模式
+    tsu
+    bash miui_port.sh <底包路径> <移植包路径>
 ```
 - 上述代码中，底包路径和移植包路径可以替换为链接
