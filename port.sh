@@ -678,7 +678,6 @@ done
 rm fstype.txt
 
 
-read
 
 # 打包 super.img
 Yellow 开始打包Super.img
