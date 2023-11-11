@@ -1,0 +1,7 @@
+/BASEROM/
+/PORTROM/
+/*.zip
+/build/
+/dist/
+/tmp/
+.DS_Store
