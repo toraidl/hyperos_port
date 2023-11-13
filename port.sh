@@ -67,12 +67,12 @@ Green() {
 # 向 apk 或 jar 文件中替换 smali 代码，不支持资源补丁
 # $1: 目标 apk/jar 文件
 # $2: 目标 smali 文件
-# $3: 搜索模式
-# $4: 替换模式
-patch_code() {
+# $3: 被替换值
+# $4: 替换值
+patch_smali() {
     targetfilefullpath=$(find build/PORTROM/images -type f -name $1)
     targetfilename=$(basename $targetfilefullpath)
-    if [ -f $targetfilename ];then
+    if [ -f $targetfilefullpath ];then
         Yellow "正在修改 $targetfilename"
         foldername=${targetfilename%.*}
         rm -rf tmp/$foldername/
@@ -80,7 +80,7 @@ patch_code() {
         cp -rf $targetfilefullpath tmp/$foldername/
         7z x -y tmp/$foldername/$targetfilename *.dex -otmp/$foldername >/dev/null
         for dexfile in $(ls tmp/$foldername/*.dex);do
-            echo I: Baksmaling $dexfile
+            Yellow I: Baksmaling $dexfile
             smalifname=${dexfile%.*}
             smalifname=$(echo $smalifname | cut -d "/" -f 3)
             java -jar bin/apktool/baksmali.jar d --api ${port_android_sdk} ${dexfile} -o tmp/$foldername/$smalifname
@@ -89,7 +89,7 @@ patch_code() {
         targetsmali=$(find tmp/$foldername -type f -name $2)
         if [ -f $targetsmali ];then
             smalidir=$(echo $targetsmali |cut -d "/" -f 3)
-            Yellow I: 找到目标 $(basename ${targetsmali}) 位于 $smalidir文件
+            Yellow I: 找到目标 $(basename ${targetsmali}) 位于 ${smalidir}.dex 文件
             
             Yellow I: 开始patch目标 ${smalidir}
             search_pattern=$3
@@ -99,14 +99,22 @@ patch_code() {
             Yellow I: Smaling smali_${smalidir} 文件夹回 ${smalidir}.dex
             java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/$foldername/${smalidir} -o tmp/$foldername/${smalidir}.dex
             cd tmp/$foldername/ || exit
-            7z a -y -mx0 $targetfilename ${smalidir}.dex > /dev/null
+            #macOS上用7z添加文件到apk会提示错误,jar正常
+            #fixme
+            if [ $(uname) = "Darwin" ];then
+                zip -our $targetfilename ${smalidir}.dex
+            else
+                7z a -y -mx0 $targetfilename ${smalidir}.dex
+            fi
             cd ../../
-            cp -rf tmp/$foldername/$targetfilename ${targetfilefullpath}
+            cp -rfv tmp/$foldername/$targetfilename ${targetfilefullpath}
             fi
     fi
 
 }
 
+#重新打包apk后会崩，暂不知原因，弃用
+#fixme
 patch_apk() {
     if [[ $5 == "1" ]];then
         nores="--no-res"
@@ -120,12 +128,12 @@ patch_apk() {
         bin/apktool/apktool d $nores $apkfile -o tmp/$apkname -f
         targetSmali=$(find tmp/$apkname -type f -name "$2")
         Yellow "找到目标$targetSmali patching..."
-        if sed -i "s/$3/$4/" $targetSmali; then 
+        if sed -i "s/$3/$4/g" $targetSmali; then 
             Yellow "patch $3成功，开始重新打包并替换$apkfile"
              bin/apktool/apktool b tmp/$apkname -o $apkname.apk -f
             cp -Rf $apkname.apk $apkfile
         else
-            Error "patch失败，检查是否方法改变"
+            Error "patch失败，检查是否方法已改变"
         fi 
     fi
 }
@@ -191,6 +199,7 @@ for i in ${PORT_PARTITION};do
     [ -d ./${i} ] && rm -rf ./${i}
 done
 sudo rm -rf app
+sudo rm -rf tmp
 sudo rm -rf config
 sudo rm -rf build/BASEROM/
 sudo rm -rf build/PORTROM/
@@ -336,7 +345,7 @@ port_rom_code=$(< build/PORTROM/images/product/etc/build.prop grep "ro.product.p
 Green "机型代号: 底包为 [${base_rom_code}], 移植包为 [${port_rom_code}]"
 
 
-#亮度问题
+#原机display配置卡一屏问题
 baseAospFrameworkResOverlay=$(find build/BASEROM/images/product -type f -name "AospFrameworkResOverlay.apk")
 portAospFrameworkResOverlay=$(find build/PORTROM/images/product -type f -name "AospFrameworkResOverlay.apk")
 if [ -f "${baseAospFrameworkResOverlay}" ] && [ -f "${portAospFrameworkResOverlay}" ];then
@@ -467,13 +476,15 @@ if [[ -f $targetDevicesAndroidOverlay ]]; then
     bin/apktool/apktool d $targetDevicesAndroidOverlay -o tmp/$targetDir -f 
     search_pattern="com\.miui\.aod\/com\.miui\.aod\.doze\.DozeService"
     replacement_pattern="com\.android\.systemui\/com\.android\.systemui\.doze\.DozeService"
-    find . -type f -name "*.xml" -exec sh -c "sed -i 's/${search_pattern}/${replacement_pattern}/g' {}" \;
-
+    for xml in $(find tmp/$targetDir -type f -name "*.xml");do
+        sed -i "s/$search_pattern/$replacement_pattern/g" $xml
+    done
     bin/apktool/apktool b tmp/$targetDir -o tmp/$filename
     Yellow "修改完成，替换$targetDevicesAndroidOverlay"
     cp -rf tmp/$filename $targetDevicesAndroidOverlay
     rm -rf tmp
 fi
+
 
 
 # 修复NFC
@@ -530,129 +541,15 @@ if [ -f $targetVintf ];then
     sed -i "/<\/vendor-ndk>/a$ndk_version" $targetVintf
 fi
 
-#左侧挖孔灵动岛修复
-miuisystemui=$(find build/PORTROM/images/system_ext -type f -name MiuiSystemUI.apk)
-if [ -f "$miuisystemui" ] ;then
-	Yellow "正在修复左侧挖孔灵动岛"
-	rm -rf tmp/miuisystemui/
-	mkdir -p tmp/miuisystemui/
-	cp -rf ${miuisystemui} tmp/miuisystemui/MiuiSystemUI.apk
-	7z x -y tmp/miuisystemui/MiuiSystemUI.apk *.dex -otmp/miuisystemui
-	for dexfile in $(ls tmp/miuisystemui/*.dex);do
-		echo I: Baksmaling ${dexfile}...
-		fname=${dexfile%%.*}
-		fname=$(echo $fname |cut -d "/" -f 3)
-		java -jar bin/apktool/baksmali.jar d --api ${port_android_sdk} ${dexfile} -o tmp/miuisystemui/${fname}
-		rm -rf ${dexfile}
-	done
-	targetSmali=$(find tmp/miuisystemui -type f -name MIUIStrongToast\$2.smali)
-	if [ -f "$targetSmali" ];then
-		Yellow I: Target ${targetSmali}
-		targetdir=$(echo $targetSmali |cut -d "/" -f 3)
-        Yellow I: TargetDir ${targetdir}
-        search_pattern="const\/4 v7\, 0x0"
-        replacement_pattern="iget-object v7\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v7}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v7\\n\\tint-to-float v7,v7"
-		sed -i "s/$search_pattern/$replacement_pattern/" $targetSmali
-		rm -rf ${miuisystemui}
-		Yellow I: Smaling smali_${targetdir} folder into ${targetdir}.dex
-		java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/miuisystemui/${targetdir} -o tmp/miuisystemui/${targetdir}.dex
-		cd tmp/miuisystemui/ || exit
-		7z a -y -mx0 MiuiSystemUI.apk ${targetdir}.dex
-		cd ../../
-		cp -rf tmp/miuisystemui/MiuiSystemUI.apk ${miuisystemui}
-	else
-		Yellow I: 跳过修改 MiuiSystemUI.apk
-		rm -rf tmp/
-	fi
-else
-	Yellow I: 跳过修改 MiuiSystemUI.apk
-fi
+Blue "左侧挖孔灵动岛修复"
+patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v7\, 0x0" "iget-object v7\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v7}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v7\\n\\tint-to-float v7,v7"
 
+Blue "不优雅的方案解决开机软重启问题"
+patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
+
+Blue "去除安卓14应用签名限制"
+patch_smali "framework.jar" "ApkSignatureVerifier.smali" "const\/4 v0, 0x2" "const\/4 v0, 0x1" 
 # 修复软重启
-miuiservicesjar=$(find build/PORTROM/images/system_ext/framework -type f -name miui-services.jar)
-if [ -f "$miuiservicesjar" ] && [ ${port_android_version} -ge 13 ]; then
-    Blue "不优雅的方案解决开机软重启问题"
-    rm -rf tmp/framework/
-    mkdir -p tmp/framework/
-    cp -rf ${miuiservicesjar} tmp/framework/miui-services.jar
-    7z x -y tmp/framework/miui-services.jar *.dex -otmp/framework >/dev/null
-    for dexfile in $(ls tmp/framework/*.dex);do
-        Yellow I: Backsmaling ${dexfile}..
-        fname=${dexfile%%.*}
-        fname=$(echo $fname |cut -d "/" -f 3)
-		java -jar bin/apktool/baksmali.jar d --api ${port_android_sdk} ${dexfile} -o tmp/framework/${fname}
-		rm -rf ${dexfile}
-    done
-    	targetSmali=$(find tmp/framework -type f -name HysteresisLevelsImpl.smali)
-	if [ -f "$targetSmali" ];then
-		Yellow I: Target ${targetSmali}
-		targetdir=$(echo $targetSmali |cut -d "/" -f 3)
-        echo I: TargetDir ${targetdir}
-		sed -i "s/iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F/const\/high16 v\1, 0x3f800000/" $targetSmali
-		rm -rf ${miuiservicesjar}
-		echo I: Smaling smali_${targetdir} folder into ${targetdir}.dex
-		java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/framework/${targetdir} -o tmp/framework/${targetdir}.dex
-		cd tmp/framework/ || exit
-		7z a -y miui-services.jar ${targetdir}.dex >/dev/null
-		cd ../../
-		cp -rf tmp/framework/miui-services.jar ${miuiservicesjar}
-
-		rm -rf tmp/
-	else
-		Yellow I: Skipping modify miui-services.jar
-		rm -rf tmp/
-	fi
-fi
-
-# 签名验证
-
-frameworkjar=$(find build/PORTROM/images/system/system -type f -name framework.jar)
-if [ -f "$frameworkjar" ] && [ ${port_android_version} -ge 13 ];then
-	Blue "正在去除安卓14应用签名限制"
-	rm -rf tmp/framework/
-	mkdir -p tmp/framework/
-	cp -rf ${frameworkjar} tmp/framework/framework.jar
-	7z x -y tmp/framework/framework.jar *.dex -otmp/framework >/dev/null
-	for dexfile in $(ls tmp/framework/*.dex);do
-		Yellow I: Baksmaling ${dexfile}...
-		fname=${dexfile%%.*}
-		fname=$(echo $fname |cut -d "/" -f 3)
-		java -jar bin/apktool/baksmali.jar d --api ${port_android_sdk} ${dexfile} -o tmp/framework/${fname}
-		rm -rf ${dexfile}
-	done
-	targetSmali=$(find tmp/framework -type f -name ApkSignatureVerifier.smali)
-	if [ -f "$targetSmali" ];then
-		Yellow I: Target ${targetSmali}
-		targetdir=$(echo $targetSmali |cut -d "/" -f 3)
-        Yellow I: TargetDir ${targetdir}
-		sed -i "s/const\/4 v0, 0x2/const\/4 v0, 0x1/g" $targetSmali
-		rm -rf ${frameworkjar}
-		Yellow I: Smaling smali_${targetdir} folder into ${targetdir}.dex
-		java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/framework/${targetdir} -o tmp/framework/${targetdir}.dex
-		cd tmp/framework/ || exit
-		7z a -y framework.jar ${targetdir}.dex >/dev/null
-		cd ../../
-		cp -rf tmp/framework/framework.jar ${frameworkjar}
-		#rm -rf tmp/framework/
-		#mkdir -p tmp/framework/arm tmp/framework/arm64
-		#mv build/PORTROM/images/system/system/framework/boot-framework.vdex tmp/framework/
-		##mv build/PORTROM/images/system/system/framework/arm/boot-framework.* tmp/framework/arm/
-		#mv build/PORTROM/images/system/system/framework/arm64/boot-framework.* tmp/framework/arm64/
-		#rm -rf build/PORTROM/images/system/system/framework/*.vdex build/PORTROM/images/system/system/framework/arm/* build/PORTROM/images/system/system/framework/arm64/*
-		#find build/BASEROM/images/system -type d -name "oat" |xargs rm -rf
-		#find build/PORTROM/images/vendor -type d -name "oat" |xargs rm -rf
-		#find build/BASEROM/images/system_ext -type d -name "oat" |xargs rm -rf
-		#find build/BASEROM/images/product -type d -name "oat" |xargs rm -rf
-		#mv tmp/framework/* build/PORTROM/images/system/system/framework/
-		rm -rf tmp/
-	else
-		Yellow I: Skipping modify framework.jar
-		rm -rf tmp/
-	fi
-else
-	Yellow I: Skipping modify framework.jar
-fi
-
 
 # 主题防恢复
 if [ -f build/PORTROM/images/system/system/etc/init/hw/init.rc ];then
@@ -782,21 +679,15 @@ echo "ro.miui.cust_erofs=0" >> build/PORTROM/images/product/etc/build.prop
 #    < $vendorprop grep "sys.haptic" >>${odmprop}
 #fi
 
+#Fix： mi10 boot stuck at the first screen
+sed -i "s/persist\.sys\.millet\.cgroup1/#persist\.sys\.millet\.cgroup1/" build/PORTROM/images/vendor/build.prop
+echo "ro.millet.netlink=29" >> build/PORTROM/images/vendor/build.prop
 
-if [[ $base_device_code == "umi" ]];then
-
-    #Fix： mi10 boot stuck at the first screen
-    sed -i "s/persist\.sys\.millet\.cgroup1/#persist\.sys\.millet\.cgroup1/" build/PORTROM/images/vendor/build.prop
-    echo "ro.millet.netlink=29" >> build/PORTROM/images/vendor/build.prop
-
-    #Fix：Fingerprint issue encountered on OS V1.0.18
-    echo "vendor.perf.framepacing.enable=false" >> build/PORTROM/images/vendor/build.prop
-
-fi
-
+#Fix：Fingerprint issue encountered on OS V1.0.18
+echo "vendor.perf.framepacing.enable=false" >> build/PORTROM/images/vendor/build.prop
 
 #自定义替换
-
+#Devices/机型代码/overaly 按照镜像的目录结构，可直接替换目标。
 if [[ -d "devices/${base_rom_code}/overlay" ]]; then
     targetNFCFolder=$(find build/PORTROM/images/system/system build/PORTROM/images/product build/PORTROM/images/system_ext -type d -name "NQNfcNci*")
     targetCamera=$(find build/PORTROM/images/system/system build/PORTROM/images/product build/PORTROM/images/system_ext -type d -name "MiuiCamera")
@@ -982,11 +873,11 @@ for img in $(find out/hyperos_${deviceCode}_${port_rom_version}/firmware-update 
 done
 
 Blue "正在生成刷机脚本"
-if [ $base_rom_code = "umi" ];then
+if [ "${baseROMType}" = "br" ];then
 
     cp -rf bin/flash/a-only/update-binary out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/android/
     cp -rf bin/flash/zstd out/hyperos_${deviceCode}_${port_rom_version}/META-INF/
-    cp devices/umi/boot_tv.img out/hyperos_${deviceCode}_${port_rom_version}/
+    cp devices/$base_rom_code/boot_tv.img out/hyperos_${deviceCode}_${port_rom_version}/
     sed -i "s/portversion/${port_rom_version}/g" out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/android/update-binary
     sed -i "s/baseversion/${base_rom_version}/g" out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/android/update-binary
     sed -i "s/andVersion/${port_android_version}/g" out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/android/update-binary
@@ -1036,4 +927,4 @@ cd ../
 hash=$(md5sum hyperos_${deviceCode}_${port_rom_version}.zip |head -c 10)
 mv hyperos_${deviceCode}_${port_rom_version}.zip hyperos_${deviceCode}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${packType}.zip
 Green "移植完毕"    
-Green "输出包为 $(pwd)/out/hyperos_${deviceCode}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${packType}.zip"
+Green "输出包为 $(pwd)/hyperos_${deviceCode}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${packType}.zip"
