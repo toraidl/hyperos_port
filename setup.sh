@@ -1,3 +1,4 @@
+#!/bin/bash
 # port requirements
 
 if [ "$(id -u)" != "0" ] && [ "$(uname -m)" == "x86_64" ];then
@@ -5,8 +6,8 @@ if [ "$(id -u)" != "0" ] && [ "$(uname -m)" == "x86_64" ];then
     exit
 fi
 
-if [ "$(uname -m)" == "x86_64" ];then
-    echo "Device arch: x86_64"
+if [ "$(uname -m)" == "x86_64" ] && [  "$(uname)" == "Linux" ];then
+    echo "Device arch: Linux x86_64"
     apt update -y
     apt upgrade -y
     apt install -y aria2 python3 busybox zip unzip p7zip-full openjdk-8-jre
@@ -20,4 +21,9 @@ if [ "$(uname -m)" == "aarch64" ];then
     apt update -y
     apt upgrade -y
     apt install -y python busybox zip unzip p7zip openjdk-17
+fi
+
+if [ "$(uname -m)" == "darwin" ] && [ "$(uname -m)" == "x86_64" ];then
+    echo "Devcie arch: MacOS X86_X64"
+    brew install aria2 openjdk zstd coreutils
 fi

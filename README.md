@@ -1,33 +1,31 @@
-# MIUI V-A/B 机型移植项目
-
+# HyperOS A-only 机型（xiaomi mi10）移植项目
+基于 https://github.com/ljc-fight/miui_port
 ## 简介
-- MIUI14安卓13移植一键自动完成
+- HyperOS 一键自动移植打包
 
 ## 测试机型及版本
-- 测试机型小米10S 底包 (V14.0.6.0.TGACNXM)
-- 测试版本 小米13 Android 13 V14.0.23.9.18.DEV
-- 测试版本 小米13Pro Android 13 V14.0.23.9.18.DEV
-- 测试版本 小米13Ultra Android 13 V14.0.23.9.18.DEV
+- 测试机型小米10 底包 (V14.0.4.0.TJBCNXM)
+- 测试版本 小米14Pro Android 14 OS1.0.09.0.UNBCNXM - OS1.0.20.0.UNBCNXM 官方OTA包
 
 ## 正常工作
-- NFC
 - 人脸
 - 挖孔
-- 相机
 - 指纹
+- 相机（基础功能）
 - 自动亮度
 - 通话息屏
 - 应用双开
 - 护眼模式
 - 带壳截屏
 
+
 ## BUG
-- DPI偏小
+- NFC（mi10可刷卡）
+
 - 等你发现
 
 ## 说明
-- 以上均基于小米10S正式版(V14.0.6.0.TGACNXM)测试
-- 联发科未测试
+- 以上均基于小米10正式版(V14.0.4.0.TJBCNXM)测试
 
 ## 如何使用
 - 在WSL、ubuntu、deepin等Linux下
@@ -36,26 +34,38 @@
     sudo apt upgrade
     sudo apt install git -y
     # 克隆项目
-    git clone https://github.com/ljc-fight/miui_port.git
-    cd miui_port
+    git clone https://github.com/toraidl/hyperos_port.git
+    cd hyperos_port
     # 安装依赖
-    sudo bash setup.sh
+    sudo ./setup.sh
     # 开始移植
-    sudo bash miui_port.sh <底包路径> <移植包路径>
+    sudo ./hyperos_port.sh <底包路径> <移植包路径>
 ```
+- 在macOS下
+```shell
+    # 安装brew
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-- 在Termux上
+    # 克隆项目
+    git clone https://github.com/toraidl/hyperos_port.git
+    cd hyperos_port
+    # 安装依赖
+    sudo ./setup.sh
+    # 开始移植
+    sudo ./hyperos_port.sh <底包路径> <移植包路径>
+```
+- 在Termux上(未测试)
 ```shell
     pkg update
     pkg upgrade
     pkg install git tsu -y
     # 克隆项目
-    git clone https://github.com/ljc-fight/miui_port.git
-    cd miui_port/
+    git clone https://github.com/toraidl/hyperos_port.git
+    cd hyperos_port/
     # 安装依赖
-    bash setup.sh
+    ./setup.sh
     # 进入root模式
     tsu
-    bash miui_port.sh <底包路径> <移植包路径>
+    ./hyperos_port.sh <底包路径> <移植包路径>
 ```
 - 上述代码中，底包路径和移植包路径可以替换为链接

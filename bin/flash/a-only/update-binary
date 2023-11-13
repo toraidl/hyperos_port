@@ -1,0 +1,163 @@
+#!/sbin/sh
+
+OUTFD=/proc/self/fd/$2
+ZIPFILE="$3"
+ZIPNAME=${ZIPFILE##*/}
+ui_print() {
+  echo -e "ui_print $1\nui_print" >>$OUTFD
+}
+
+package_extract_file() {
+  ui_print "- 正在刷写分区 $(echo $2 | cut -d '/' -f 6) "
+  unzip -p "$ZIPFILE" $1 >$2
+}
+
+package_extract_zstd() {
+  ui_print "- 正在刷写分区 $(echo $2 | cut -d '/' -f 6) "
+  unzip -p "$ZIPFILE" $1 | /tmp/META-INF/zstd -c -d >$2
+}
+
+getVolumeKey() {
+	ui_print "- 监听音量键 按[+]选择"是" 按[-]选择"否""
+	keyInfo=true
+	while $keyInfo;do
+		keyInfo=$(getevent -qlc 1 |grep KEY_VOLUME)
+		if [ "$keyInfo" == "" ];then
+			continue
+		else
+			isUpKey=$(echo $keyInfo |grep KEY_VOLUMEUP)
+			[ "$isUpKey" != "" ] && return 0 || return 1
+			break
+		fi
+	done
+}
+
+checkDevice() {
+	myDevice=$(getprop ro.product.name)
+	romDevice=deviceCode
+	ui_print "========================="
+	ui_print " "
+	ui_print "       设备代号：$myDevice"
+	ui_print " "
+	ui_print "       ROM 代号：$romDevice"
+	ui_print " "
+	ui_print "       底包版本：baseversion"
+	ui_print " "
+	ui_print "       移植版本：portversion"
+	ui_print " "
+	ui_print "       安卓版本：andVersion"
+	ui_print " "
+	ui_print "========================="
+	if [ "$myDevice" != "$romDevice" ];then
+		ui_print "- 设备代号检验不通过，请再次核实此包是否对应你的机型"
+		ui_print "- 如果刷错包导致变砖，你将自己承担其后果，是否继续刷入？"
+		if ! getVolumeKey ;then
+			ui_print "- 你选择了终止刷入"
+			exit 1
+		else
+			ui_print "- 你选择了继续刷入"
+		fi
+	fi
+}
+
+[ -d /tmp ] && rm -rf /tmp
+mkdir -p /tmp
+unzip "$ZIPFILE" META-INF/zstd -d /tmp
+chmod -R 0755 /tmp
+
+checkDevice
+
+# 检查是否存在打包错误
+isDamaged=$(unzip -l $ZIPFILE |grep "patcherror.txt")
+
+if [ "$isDamaged" != "" ];then
+	ui_print "该ROM存在打包错误，终止刷入"
+	exit 1
+fi
+
+if [ "$AdbSideLoad" = "" ]; then
+	ui_print "- 正在校验MD5"
+	ui_print " "
+	RealMd5=$(echo $ZIPNAME | cut -d '_' -f 4)
+	ui_print "- ROM正确的MD5值为: $RealMd5"
+	ui_print " "
+	LocalMd5=$(md5sum $ZIPFILE | head -c10)
+	ui_print "- ROM经校验MD5值为: $LocalMd5"
+	ui_print " "
+	if [ "$RealMd5" != "$LocalMd5" ]; then
+		ui_print "- MD5校验不通过，终止刷机"
+		ui_print " "
+		exit 1
+	fi
+	ui_print "- MD5校验通过"
+	ui_print " "
+else
+	ui_print "- ADB Sideload 跳过MD5校验"
+	ui_print " "
+fi
+ui_print " "
+ui_print "- 开始刷机"
+ui_print " "
+
+#boot
+if [[ $ZIPFILE == *ROOT* ]]; then
+    package_extract_file "boot_tv.img" "/dev/block/bootdevice/by-name/boot"
+else
+    package_extract_file "boot_official.img" "/dev/block/bootdevice/by-name/boot"
+fi
+
+
+#firmware
+package_extract_file "firmware-update/vbmeta_system.img" "/dev/block/bootdevice/by-name/vbmeta_system"
+package_extract_file "firmware-update/vbmeta.img" "/dev/block/bootdevice/by-name/vbmeta"
+package_extract_file "firmware-update/dtbo.img" "/dev/block/bootdevice/by-name/dtbo"
+package_extract_file "firmware-update/logo.img" "/dev/block/bootdevice/by-name/logo"
+package_extract_file "firmware-update/hyp.mbn" "/dev/block/bootdevice/by-name/hypbak"
+package_extract_file "firmware-update/devcfg.mbn" "/dev/block/bootdevice/by-name/devcfgbak"
+package_extract_file "firmware-update/abl.elf" "/dev/block/bootdevice/by-name/ablbak"
+package_extract_file "firmware-update/qupv3fw.elf" "/dev/block/bootdevice/by-name/qupfwbak"
+package_extract_file "firmware-update/storsec.mbn" "/dev/block/bootdevice/by-name/storsecbak"
+package_extract_file "firmware-update/aop.mbn" "/dev/block/bootdevice/by-name/aopbak"
+package_extract_file "firmware-update/tz.mbn" "/dev/block/bootdevice/by-name/tzbak"
+package_extract_file "firmware-update/cmnlib.mbn" "/dev/block/bootdevice/by-name/cmnlibbak"
+package_extract_file "firmware-update/cmnlib64.mbn" "/dev/block/bootdevice/by-name/cmnlib64bak"
+package_extract_file "firmware-update/hyp.mbn" "/dev/block/bootdevice/by-name/hyp"
+package_extract_file "firmware-update/xbl_4.elf" "/dev/block/bootdevice/by-name/xbl_4"
+package_extract_file "firmware-update/devcfg.mbn" "/dev/block/bootdevice/by-name/devcfg"
+package_extract_file "firmware-update/dspso.bin" "/dev/block/bootdevice/by-name/dsp"
+package_extract_file "firmware-update/abl.elf" "/dev/block/bootdevice/by-name/abl"
+package_extract_file "firmware-update/qupv3fw.elf" "/dev/block/bootdevice/by-name/qupfw"
+package_extract_file "firmware-update/uefi_sec.mbn" "/dev/block/bootdevice/by-name/uefisecapp"
+package_extract_file "firmware-update/storsec.mbn" "/dev/block/bootdevice/by-name/storsec"
+package_extract_file "firmware-update/xbl_config_4.elf" "/dev/block/bootdevice/by-name/xbl_config_4"
+package_extract_file "firmware-update/featenabler.mbn" "/dev/block/bootdevice/by-name/featenabler"
+package_extract_file "firmware-update/aop.mbn" "/dev/block/bootdevice/by-name/aop"
+package_extract_file "firmware-update/tz.mbn" "/dev/block/bootdevice/by-name/tz"
+package_extract_file "firmware-update/xbl_5.elf" "/dev/block/bootdevice/by-name/xbl_5"
+package_extract_file "firmware-update/km4.mbn" "/dev/block/bootdevice/by-name/keymaster"
+package_extract_file "firmware-update/BTFM.bin" "/dev/block/bootdevice/by-name/bluetooth"
+package_extract_file "firmware-update/cmnlib.mbn" "/dev/block/bootdevice/by-name/cmnlib"
+package_extract_file "firmware-update/NON-HLOS.bin" "/dev/block/bootdevice/by-name/modem"
+package_extract_file "firmware-update/xbl_config_5.elf" "/dev/block/bootdevice/by-name/xbl_config_5"
+package_extract_file "firmware-update/cmnlib64.mbn" "/dev/block/bootdevice/by-name/cmnlib64"
+
+
+#super cust image
+package_extract_zstd "super.zst" "/dev/block/bootdevice/by-name/super"
+
+ui_print "- 清除缓存"
+rm -rf /data/dalvik-cache/arm/*
+rm -rf /data/dalvik-cache/arm64/*
+rm -rf /data/system/package_cache/*
+ui_print " "
+ui_print " "
+ui_print "- 刷机完毕"
+ui_print " "
+ui_print " "
+ui_print "- 如有红色挂载报错请直接忽略"
+ui_print "- 如有红色挂载报错请直接忽略"
+ui_print "- 如有红色挂载报错请直接忽略"
+ui_print " "
+ui_print " "
+
+exit 0
