@@ -334,12 +334,17 @@ base_rom_version=$(< build/PORTROM/images/vendor/build.prop grep "ro.vendor.buil
 
 #HyperOS版本号获取
 port_mios_version_incremental=$(< build/PORTROM/images/mi_ext/etc/build.prop grep "ro.mi.os.version.incremental" | awk 'NR==1' | cut -d '=' -f 2)
-
 #替换机型代号,比如小米10：UNBCNXM -> UJBCNXM
-base_device_code=U$(echo $base_rom_version | cut -d "." -f 5 | cut -c 2-)
+
 port_device_code=$(echo $port_mios_version_incremental | cut -d "." -f 5)
 
-port_rom_version=$(echo $port_mios_version_incremental | sed "s/$port_device_code/$base_device_code/")
+if [[ $port_mios_version_incremental == *DEV* ]];then
+    Yellow "Dev deteced,skip replacing codename"
+    port_rom_version=$(echo $port_mios_version_incremental)
+else
+    base_device_code=U$(echo $base_rom_version | cut -d "." -f 5 | cut -c 2-)
+    port_rom_version=$(echo $port_mios_version_incremental | sed "s/$port_device_code/$base_device_code/")
+fi
 Green "ROM 版本: 底包为 [${base_rom_version}], 移植包为 [${port_rom_version}]"
 
 # MIUI版本
@@ -531,11 +536,19 @@ fi
 
 #解决开机报错问题
 targetVintf=$(find build/PORTROM/images/system_ext/etc/vintf -type f -name "manifest.xml")
-if [ -f $targetVintf ];then
-    ndk_version="<vendor-ndk>\n     <version>$vndk_version</version>\n </vendor-ndk>"
-    sed -i "/<\/vendor-ndk>/a$ndk_version" $targetVintf
+if [ -f "$targetVintf" ]; then
+    # Check if the file contains $vndk_version
+    if grep -q "<version>$vndk_version</version>" "$targetVintf"; then
+        echo "The file already contains the version $vndk_version. Skipping modification."
+    else
+        # If it doesn't contain $vndk_version, then add it
+        ndk_version="<vendor-ndk>\n     <version>$vndk_version</version>\n </vendor-ndk>"
+        sed -i "/<\/vendor-ndk>/a$ndk_version" "$targetVintf"
+        echo "Version $vndk_version added to $targetVintf"
+    fi
+else
+    echo "File $targetVintf not found."
 fi
-
 Blue "左侧挖孔灵动岛修复"
 patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v7\, 0x0" "iget-object v7\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v7}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v7\\n\\tint-to-float v7,v7"
 
@@ -625,7 +638,9 @@ for i in $(find build/PORTROM/images -type f -name "build.prop");do
     sed -i "s/persist.sys.timezone=.*/persist.sys.timezone=Asia\/Shanghai/g" ${i}
     sed -i "s/ro.product.mod_device=.*/ro.product.mod_device=${base_rom_code}/g" ${i}
     #全局替换device_code
-    sed -i "s/$port_device_code/$base_device_code/g" ${i}
+    if [[ $port_mios_version_incremental != *DEV* ]];then
+        sed -i "s/$port_device_code/$base_device_code/g" ${i}
+    fi
     # 添加build user信息
     sed -i "s/ro.build.user=.*/ro.build.user=${BUILDUSER}/g" ${i}
     sed -i "s/ro.build.host=.*/ro.build.host=${BUILDHOST}/g" ${i}
@@ -859,16 +874,17 @@ mkdir -p out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/andro
 
 Blue "正在生成刷机脚本"
 if [ "${baseROMType}" = "br" ];then
-    # disable vbmeta
-    for img in $(find out/hyperos_${deviceCode}_${port_rom_version}/firmware-update -type f -name "vbmeta*.img");do
-        python3 bin/patch-vbmeta.py ${img}
-    done
+
     mv -f build/PORTROM/images/super.zst out/hyperos_${deviceCode}_${port_rom_version}/
     #firmware
     if [ -d build/BASEROM/firmware-update ];then
         mkdir -p out/hyperos_${deviceCode}_${port_rom_version}/firmware-update
         cp -rf build/BASEROM/firmware-update/*  out/hyperos_${deviceCode}_${port_rom_version}/firmware-update
     fi
+        # disable vbmeta
+    for img in $(find out/hyperos_${deviceCode}_${port_rom_version}/firmware-update -type f -name "vbmeta*.img");do
+        python3 bin/patch-vbmeta.py ${img}
+    done
     mv -f build/BASEROM/boot.img out/hyperos_${deviceCode}_${port_rom_version}/boot_official.img
     cp -rf bin/flash/a-only/update-binary out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/android/
     cp -rf bin/flash/zstd out/hyperos_${deviceCode}_${port_rom_version}/META-INF/
