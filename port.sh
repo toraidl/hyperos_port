@@ -140,7 +140,7 @@ patch_apk() {
 
 # 移植的分区，可在 bin/port_config 中更改
 PORT_PARTITION=$(grep "partition_to_port" bin/port_config |cut -d '=' -f 2)
-SUPERLIST=$(grep "super_list" bin/port_config |cut -d '=' -f 2)
+#SUPERLIST=$(grep "super_list" bin/port_config |cut -d '=' -f 2)
 REPACKEXT4=$(grep "repack_with_ext4" bin/port_config |cut -d '=' -f 2)
 # 检查为本地包还是链接
 
@@ -182,8 +182,11 @@ fi
 Blue "正在检测ROM底包"
 if unzip -l ${BASEROM} | grep -q "payload.bin"; then
     baseROMType="payload"
+    SUPERLIST="vendor mi_ext odm odm_dlkm system system_dlkm vendor_dlkm product product_dlkm system_ext"
 elif unzip -l ${BASEROM} | grep -q "br$";then
     baseROMType="br"
+    SUPERLIST="vendor mi_ext odm system product system_ext"
+    
 else
     Error "底包中未发现payload.bin以及br文件，请使用MIUI官方包后重试"
     exit
@@ -233,42 +236,49 @@ if [ ${baseROMType} = 'payload' ];then
     payload-dumper-go -o build/BASEROM/images/ build/BASEROM/payload.bin >/dev/null 2>&1 ||Error "分解底包 [payload.bin] 时出错"
 else
     Blue "开始分解底包 [new.dat.br]"
-        for i in system system_ext vendor mi_ext odm product; do
+        for i in ${SUPERLIST}; do
             ${TOOLS_DIR}/brotli -d build/BASEROM/$i.new.dat.br >/dev/null 2>&1
             sudo python3 ${TOOLS_DIR}/sdat2img.py build/BASEROM/$i.transfer.list build/BASEROM/$i.new.dat build/BASEROM/images/$i.img >/dev/null 2>&1
             rm -rf $i.new.data.* $i.transfer.list $i.patch.*
         done
 fi
-for part in mi_ext system system_ext product;do
-    if [[ $($TOOLS_DIR/gettype -i build/BASEROM/images/${part}.img) == "ext" ]];then
-        packType=EXT
-        Blue "正在分解底包 ${part}.img [ext]"
-        sudo python3 bin/imgextractor/imgextractor.py build/BASEROM/images/${part}.img >/dev/null 2>&1
-        Blue "分解底包 [${part}.img] 完成，移到build/BASEROM/images文件夹"
-        mv ${part} build/BASEROM/images/
-        
-    elif [[ $($TOOLS_DIR/gettype -i build/BASEROM/image/${part}.img) == "erofs" ]]; then
-        packType=EROFS
-        Blue "正在分解底包 ${part}.img [erofs]"
-        extract.erofs -x -i build/BASEROM/images/${part}.img
-            Blue "分解底包 [${part}.img][ext] 完成，移到build/BASEROM/images文件夹"
-        mv ${part} build/BASEROM/images/
-        
+
+for part in system system_dlkm system_ext product product_dlkm mi_ext ;do
+    if [[ -f build/BASEROM/images/${part}.img ]];then 
+        if [[ $($TOOLS_DIR/gettype -i build/BASEROM/images/${part}.img) == "ext" ]];then
+            packType=EXT
+            Blue "正在分解底包 ${part}.img [ext]"
+            sudo python3 bin/imgextractor/imgextractor.py build/BASEROM/images/${part}.img >/dev/null 2>&1
+            Blue "分解底包 [${part}.img] 完成，移到build/BASEROM/images文件夹"
+            mv ${part} build/BASEROM/images/
+            
+        elif [[ $($TOOLS_DIR/gettype -i build/BASEROM/images/${part}.img) == "erofs" ]]; then
+            packType=EROFS
+            Blue "正在分解底包 ${part}.img [erofs]"
+            extract.erofs -x -i build/BASEROM/images/${part}.img
+                Blue "分解底包 [${part}.img][ext] 完成，移到build/BASEROM/images文件夹"
+            mv ${part} build/BASEROM/images/
+            
+        fi
+        mv config/*${part}* build/BASEROM/config/
     fi
+    #mv config/${part}_size.txt build/BASEROM/config/
+    #mv config/${part}_fs_config build/BASEROM/config/
+    #mv config/${part}_file_contexts build/BASEROM/config/
     
-    mv config/${part}_size.txt build/BASEROM/config/
-    mv config/${part}_fs_config build/BASEROM/config/
-    mv config/${part}_file_contexts build/BASEROM/config/
 done
 
-for image in vendor odm ;do
-    cp -rf build/BASEROM/images/${image}.img build/PORTROM/images/${image}.img
+for image in vendor odm vendor_dlkm odm_dlkm;do
+    if [ -f build/BASEROM/images/${image}.img ];then
+        cp -rf build/BASEROM/images/${image}.img build/PORTROM/images/${image}.img
+    fi
 done
-rm -rf build/BASEROM/images/*.img
+
 # 分解镜像
 Green 开始提取逻辑分区镜像
+
 for part in ${SUPERLIST};do
-    if [[ $part =~ ^(vendor|odm)$ ]] && [[ -f "build/PORTROM/images/$part.img" ]]; then
+    if [[ $part =~ ^(vendor|odm|vendor_dlkm|odm_dlkm)$ ]] && [[ -f "build/PORTROM/images/$part.img" ]]; then
         Blue "从底包中提取 [${part}]分区 ..."
     else
         Blue "paylaod.bin 提取 [${part}] 分区..."
@@ -295,7 +305,7 @@ for part in ${SUPERLIST};do
             mv ${part} build/PORTROM/images/
             mkdir -p build/PORTROM/images/${part}/lost+found
             mv config/*${part}* build/PORTROM/config/
-           rm -rf build/PORTROM/images/${part}.img
+            rm -rf build/PORTROM/images/${part}.img
 
             Green "提取移植包[${part}] [erofs]镜像完毕"
         fi
@@ -489,33 +499,7 @@ fi
 
 # 修复NFC
 Blue "正在修复/替换 NFC"
-if [[ ${base_rom_code} = "umi" && ${port_android_version} -gt 13 ]];then
-    echo "#TODO"
-else
-    cp -rf build/BASEROM/images/product/pangu/system ./system
-    for file in $(find system -type d |sed "1d");do
-        echo>>build/PORTROM/config/system_file_contexts
-        echo>>build/PORTROM/config/system_fs_config
-        echo "$file u:object_r:system_file:s0" |sed 's/system\//\/system\/system\//g' |sed 's/\./\\\./g' >>build/PORTROM/config/system_file_contexts
-        echo "$file 0 0 0755" |sed 's/system/system\/system/g' >>build/PORTROM/config/system_fs_config
-    done
-
-    for file in $(find system -type f);do
-        echo>>build/PORTROM/config/system_file_contexts
-        echo>>build/PORTROM/config/system_fs_config
-        echo "$file u:object_r:system_file:s0" |sed 's/system\//\/system\/system\//g' |sed 's/\./\\\./g' >>build/PORTROM/config/system_file_contexts
-        echo "$file 0 0 0644" |sed 's/system/system\/system/g' >>build/PORTROM/config/system_fs_config
-    done
-    cp -rf system/* build/PORTROM/images/system/system/
-    rm -rf system/
-    if [ -f build/BASEROM/images/system/system/etc/permissions/com.android.nfc_extras.xml ] && [ -f build/PORTROM/images/system/system/etc/permissions/com.android.nfc_extras.xml ];then
-        cp -rf build/BASEROM/images/system/system/etc/permissions/com.android.nfc_extras.xml build/PORTROM/images/system/system/etc/permissions/com.android.nfc_extras.xml
-    fi
-    if [ -f build/BASEROM/images/system/system/framework/com.android.nfc_extras.jar ] && [ -f build/PORTROM/images/system/system/framework/com.android.nfc_extras.jar ];then
-        cp -rf build/BASEROM/images/system/system/framework/com.android.nfc_extras.jar build/PORTROM/images/system/system/framework/com.android.nfc_extras.jar
-    fi
-fi
-
+Yellow "TODO"
 #mi_ext文件复制到product
 #cp -rf build/PORTROM/images/mi_ext/product/overlay/* build/PORTROM/images/product/overlay
 #cp -rf build/PORTROM/images/mi_ext/product/framework/* build/PORTROM/images/product/framework
@@ -526,11 +510,22 @@ fi
 #rm -rf build/PORTROM/images/product/pangu
 
 #检查是否缺少相应的vndk
-vndk_version=$(< build/PORTROM/images/vendor/default.prop grep "ro.vndk.version" | awk "NR==1" | cut -d '=' -f 2)
+
+
+#其他机型可能没有default.prop
+#vndk_version=$(< build/PORTROM/images/vendor/default.prop grep "ro.vndk.version" | awk "NR==1" | cut -d '=' -f 2)
+for prop_file in $(find build/PORTROM/images/vendor/ -name "*.prop"); do
+    vndk_version=$(< "$prop_file" grep "ro.vndk.version" | awk "NR==1" | cut -d '=' -f 2)
+    if [ -n "$vndk_version" ]; then
+        Yellow "ro.vndk.version found in $prop_file: $vndk_version"
+        break  
+    fi
+done
 baseVndk=$(find build/BASEROM/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
 portVndk=$(find build/PORTROM/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
 
 if [ ! -f "${portVndk}" ]; then
+    Yellow "复制缺少的apex到目标ROM"
     cp -rf "${baseVndk}" "build/PORTROM/images/system_ext/apex/"
 fi
 
@@ -792,7 +787,7 @@ for pname in ${SUPERLIST};do
                 Blue 以[$packType]文件系统打包[${pname}.img]
                 python3 bin/fspatch.py build/PORTROM/images/${pname} build/PORTROM/config/${pname}_fs_config
                 python3 bin/contextpatch.py build/PORTROM/images/${pname} build/PORTROM/config/${pname}_file_contexts
-                sudo perl -pi -e 's/\\@/@/g' build/PORTROM/config/${pname}_file_contexts
+                #sudo perl -pi -e 's/\\@/@/g' build/PORTROM/config/${pname}_file_contexts
                 mkfs.erofs --mount-point ${pname} --fs-config-file build/PORTROM/config/${pname}_fs_config --file-contexts build/PORTROM/config/${pname}_file_contexts build/PORTROM/images/${pname}.img build/PORTROM/images/${pname}
                 if [ -f "build/PORTROM/images/${pname}.img" ];then
                     Green "成功以 [erofs] 文件系统打包 [${pname}.img]"
@@ -858,23 +853,23 @@ Blue "正在压缩 super.img"
 zstd --rm build/PORTROM/images/super.img -o build/PORTROM/images/super.zst
 
 
-#firmware
-mkdir -p out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/android/
-mv -f build/PORTROM/images/super.zst out/hyperos_${deviceCode}_${port_rom_version}/
-if [ -d build/BASEROM/firmware-update ];then
-    mkdir -p out/hyperos_${deviceCode}_${port_rom_version}/firmware-update
-    cp -rf build/BASEROM/firmware-update/*  out/hyperos_${deviceCode}_${port_rom_version}/firmware-update
-fi
-mv -f build/BASEROM/boot.img out/hyperos_${deviceCode}_${port_rom_version}/boot_official.img
 
-# disable vbmeta
-for img in $(find out/hyperos_${deviceCode}_${port_rom_version}/firmware-update -type f -name "vbmeta*.img");do
-    python3 bin/patch-vbmeta.py ${img}
-done
+
+mkdir -p out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/android/
 
 Blue "正在生成刷机脚本"
 if [ "${baseROMType}" = "br" ];then
-
+    # disable vbmeta
+    for img in $(find out/hyperos_${deviceCode}_${port_rom_version}/firmware-update -type f -name "vbmeta*.img");do
+        python3 bin/patch-vbmeta.py ${img}
+    done
+    mv -f build/PORTROM/images/super.zst out/hyperos_${deviceCode}_${port_rom_version}/
+    #firmware
+    if [ -d build/BASEROM/firmware-update ];then
+        mkdir -p out/hyperos_${deviceCode}_${port_rom_version}/firmware-update
+        cp -rf build/BASEROM/firmware-update/*  out/hyperos_${deviceCode}_${port_rom_version}/firmware-update
+    fi
+    mv -f build/BASEROM/boot.img out/hyperos_${deviceCode}_${port_rom_version}/boot_official.img
     cp -rf bin/flash/a-only/update-binary out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/android/
     cp -rf bin/flash/zstd out/hyperos_${deviceCode}_${port_rom_version}/META-INF/
     cp devices/$base_rom_code/boot_tv.img out/hyperos_${deviceCode}_${port_rom_version}/
@@ -884,6 +879,8 @@ if [ "${baseROMType}" = "br" ];then
     sed -i "s/deviceCode/${base_rom_code}/g" out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/android/update-binary
 
 else
+    mkdir -p out/hyperos_${deviceCode}_${port_rom_version}/images/
+    mv -f build/PORTROM/images/super.zst out/hyperos_${deviceCode}_${port_rom_version}/images/
     cp -rf bin/flash/vab/update-binary out/hyperos_${deviceCode}_${port_rom_version}/META-INF/com/google/android/
     cp -rf bin/flash/vab/platform-tools-windows out/hyperos_${deviceCode}_${port_rom_version}/META-INF/
     cp -rf bin/flash/vab/flash_update.bat out/hyperos_${deviceCode}_${port_rom_version}/
