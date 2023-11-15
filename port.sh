@@ -280,8 +280,10 @@ Green 开始提取逻辑分区镜像
 for part in ${SUPERLIST};do
     if [[ $part =~ ^(vendor|odm|vendor_dlkm|odm_dlkm)$ ]] && [[ -f "build/PORTROM/images/$part.img" ]]; then
         Blue "从底包中提取 [${part}]分区 ..."
+        Blue "Extracting [${part}] from baserom"
     else
-        Blue "paylaod.bin 提取 [${part}] 分区..."
+        Blue "payload.bin 提取 [${part}] 分区..."
+        Blue "Extracting [${part}] from payload.bin"
         payload-dumper-go -p ${part} -o build/PORTROM/images/ build/PORTROM/payload.bin >/dev/null 2>&1 ||Error "提取移植包 [${part}] 分区时出错"
     fi
     if [ -f "${WORK_DIR}/build/PORTROM/images/${part}.img" ];then
@@ -360,7 +362,7 @@ port_rom_code=$(< build/PORTROM/images/product/etc/build.prop grep "ro.product.p
 Green "机型代号: 底包为 [${base_rom_code}], 移植包为 [${port_rom_code}]"
 
 
-#原机display配置卡一屏问题
+
 baseAospFrameworkResOverlay=$(find build/BASEROM/images/product -type f -name "AospFrameworkResOverlay.apk")
 portAospFrameworkResOverlay=$(find build/PORTROM/images/product -type f -name "AospFrameworkResOverlay.apk")
 if [ -f "${baseAospFrameworkResOverlay}" ] && [ -f "${portAospFrameworkResOverlay}" ];then
@@ -437,13 +439,14 @@ fi
 
 
 # displayconfig id
-Blue "正在替换 displayconfig"
-rm -rf build/PORTROM/images/product/etc/displayconfig/display_id*.xml
-cp -rf build/BASEROM/images/product/etc/displayconfig/* build/PORTROM/images/product/etc/displayconfig/
-
+for display_id_file in $(find build/BASEROM/images/product/etc/displayconfig/ -type f -name "display_id*.xml");do
+    display_id=$(basename $display_id_file)
+    Blue "Copying display_id $display_id to PortROM"
+    cp -rf $(ls -1 build/PORTROM/images/product/etc/displayconfig/display_id_*.xml | head -n 1) build/PORTROM/images/product/etc/displayconfig/$display_id.xml 
+done
 
 # device_features
-Blue "正在替换 device_features"   
+Blue "Copying device_features"   
 rm -rf build/PORTROM/images/product/etc/device_features/*
 cp -rf build/BASEROM/images/product/etc/device_features/* build/PORTROM/images/product/etc/device_features/
 
@@ -470,12 +473,12 @@ cp -rf build/BASEROM/images/product/etc/device_features/* build/PORTROM/images/p
 baseMiuiBiometric=$(find build/BASEROM/images/product/app -type d -name "MiuiBiometric*")
 portMiuiBiometric=$(find build/PORTROM/images/product/app -type d -name "MiuiBiometric*")
 if [ -d "${baseMiuiBiometric}" ] && [ -d "${portMiuiBiometric}" ];then
-    Blue "替换MiuiBiometric.."
+    Yellow "Searching and Replacing MiuiBiometric.."
     rm -rf ./${portMiuiBiometric}/*
     cp -rf ./${baseMiuiBiometric}/* ${portMiuiBiometric}/
 else
     if [ -d "${baseMiuiBiometric}" ] && [ ! -d "${portMiuiBiometric}" ];then
-        Blue "未找到MiuiBiometric,从原ROM中复制..."
+        Blue "MiuiBiometric is missing, copying from base..."
         cp -rf ${baseMiuiBiometric} build/PORTROM/images/product/app/
     fi
 fi
@@ -486,7 +489,7 @@ targetDevicesAndroidOverlay=$(find build/PORTROM/images/product -type f -name "D
 if [[ -f $targetDevicesAndroidOverlay ]]; then
     mkdir tmp/  
     filename=$(basename $targetDevicesAndroidOverlay)
-    Yellow "解包 $filename ...修复aod问题"
+    Yellow "Fixing AOD issue: $filename ..."
     targetDir=$(echo "$filename" | sed 's/\..*$//')
     bin/apktool/apktool d $targetDevicesAndroidOverlay -o tmp/$targetDir -f 
     search_pattern="com\.miui\.aod\/com\.miui\.aod\.doze\.DozeService"
@@ -495,7 +498,7 @@ if [[ -f $targetDevicesAndroidOverlay ]]; then
         sed -i "s/$search_pattern/$replacement_pattern/g" $xml
     done
     bin/apktool/apktool b tmp/$targetDir -o tmp/$filename
-    Yellow "修改完成，替换$targetDevicesAndroidOverlay"
+    Yellow "$targetDevicesAndroidOverlay"
     cp -rf tmp/$filename $targetDevicesAndroidOverlay
     rm -rf tmp
 fi
@@ -510,7 +513,7 @@ Yellow "TODO"
 #cp -rf build/PORTROM/images/mi_ext/product/framework/* build/PORTROM/images/product/framework
 #cp -rf build/PORTROM/images/mi_ext/product/etc/permissions/platform-miui-uninstall.xml build/PORTROM/images/product/etc/permissions
 #cat build/PORTROM/images/mi_ext/etc/build.prop >> build/PORTROM/images/product/etc/build.prop
-#pangu移动到system
+#pangu移动到system  
 #cp -rf build/PORTROM/images/product/pangu/system/* build/PORTROM/images/system/system/ 
 #rm -rf build/PORTROM/images/product/pangu
 
@@ -530,7 +533,7 @@ baseVndk=$(find build/BASEROM/images/system_ext/apex -type f -name "com.android.
 portVndk=$(find build/PORTROM/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
 
 if [ ! -f "${portVndk}" ]; then
-    Yellow "复制缺少的apex到目标ROM"
+    Yellow "target apex is missing, copying from baserom"
     cp -rf "${baseVndk}" "build/PORTROM/images/system_ext/apex/"
 fi
 
@@ -550,10 +553,10 @@ else
     echo "File $targetVintf not found."
 fi
 Blue "左侧挖孔灵动岛修复"
-patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v7\, 0x0" "iget-object v7\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v7}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v7\\n\\tint-to-float v7,v7"
+patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v10\, 0x0" "iget-object v10\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v10}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v10\\n\\tint-to-float v10,v10"
 
-Blue "不优雅的方案解决开机软重启问题"
-patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
+#Blue "不优雅的方案解决开机软重启问题"
+#patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
 
 Blue "去除安卓14应用签名限制"
 patch_smali "framework.jar" "ApkSignatureVerifier.smali" "const\/4 v0, 0x2" "const\/4 v0, 0x1" 
@@ -597,6 +600,7 @@ mv build/PORTROM/images/product/data-app/*Calendar* app/ >/dev/null 2>&1
 rm -rf build/PORTROM/images/product/data-app/*
 cp -rf app/* build/PORTROM/images/product/data-app
 rm -rf app
+
 rm -rf build/PORTROM/images/system/verity_key
 rm -rf build/PORTROM/images/vendor/verity_key
 rm -rf build/PORTROM/images/product/verity_key
