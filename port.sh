@@ -439,10 +439,11 @@ fi
 
 
 # displayconfig id
+
 for display_id_file in $(find build/BASEROM/images/product/etc/displayconfig/ -type f -name "display_id*.xml");do
     display_id=$(basename $display_id_file)
     Blue "Copying display_id $display_id to PortROM"
-    cp -rf $(ls -1 build/PORTROM/images/product/etc/displayconfig/display_id_*.xml | head -n 1) build/PORTROM/images/product/etc/displayconfig/$display_id.xml 
+    cp -rf $(ls -1 build/PORTROM/images/product/etc/displayconfig/display_id_*.xml | head -n 1) build/PORTROM/images/product/etc/displayconfig/$display_id 
 done
 
 # device_features
