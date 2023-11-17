@@ -1,8 +1,7 @@
-/BASEROM/
-/PORTROM/
 /*.zip
 /build/
 /dist/
 /tmp/
 /out/
 .DS_Store
+*.pyc
