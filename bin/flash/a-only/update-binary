@@ -34,7 +34,7 @@ getVolumeKey() {
 
 checkDevice() {
 	myDevice=$(getprop ro.product.name)
-	romDevice=deviceCode
+	romDevice=device_code
 	ui_print "========================="
 	ui_print " "
 	ui_print "       设备代号：$myDevice"

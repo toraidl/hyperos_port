@@ -1,6 +1,6 @@
 #!/bin/bash
-deviceCode=$1
-case $deviceCode in
+device_code=$1
+case $device_code in
 	#13 13Pro 13Ultra
 	FUXI | NUWA |ISHTAR) size=9663676416;;
 	#RedmiNote12Turbo |K60Pro |MIXFold
