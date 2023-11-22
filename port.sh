@@ -670,9 +670,9 @@ echo "vendor.perf.framepacing.enable=false" >> build/portrom/images/vendor/build
 #自定义替换
 #Devices/机型代码/overaly 按照镜像的目录结构，可直接替换目标。
 if [[ -d "devices/${base_rom_code}/overlay" ]]; then
-    #targetNFCFolder=$(find build/portrom/images/system/system build/portrom/images/product build/portrom/images/system_ext -type d -name "NQNfcNci*")
+    targetNFCFolder=$(find build/portrom/images/system/system build/portrom/images/product build/portrom/images/system_ext -type d -name "NQNfcNci*")
     targetCamera=$(find build/portrom/images/system/system build/portrom/images/product build/portrom/images/system_ext -type d -name "MiuiCamera")
-    rm -rf $targetCamera
+    rm -rf $targetCamera $targetNFCFolder
     cp -rfv devices/${base_rom_code}/overlay/* build/portrom/images/
 else
     yellow "devices/${base_rom_code}/overlay 未找到"
