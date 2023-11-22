@@ -47,7 +47,7 @@
     # 安装依赖
     sudo ./setup.sh
     # 开始移植
-    sudo ./hyperos_port.sh <底包路径> <移植包路径>
+    sudo ./port.sh <底包路径> <移植包路径>
 ```
 - 在macOS下
 ```shell
@@ -60,7 +60,7 @@
     # 安装依赖
     sudo ./setup.sh
     # 开始移植
-    sudo ./hyperos_port.sh <底包路径> <移植包路径>
+    sudo ./port.sh <底包路径> <移植包路径>
 ```
 - 在Termux上(未测试)
 ```shell
@@ -74,6 +74,6 @@
     ./setup.sh
     # 进入root模式
     tsu
-    ./hyperos_port.sh <底包路径> <移植包路径>
+    ./port.sh <底包路径> <移植包路径>
 ```
 - 上述代码中，底包路径和移植包路径可以替换为链接

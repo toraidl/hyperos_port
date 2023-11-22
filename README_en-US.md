@@ -43,7 +43,7 @@
     # Install dependencies
     sudo ./setup.sh
     # Start porting
-    sudo ./hyperos_port.sh <baserom> <portrom>
+    sudo ./port.sh <baserom> <portrom>
 ```
 - on macOS (AMD64)
 ```shell
@@ -56,7 +56,7 @@
     # Install dependencies
     sudo ./setup.sh
      # Start porting
-    sudo ./hyperos_port.sh <baserom> <portrom>
+    sudo ./port.sh <baserom> <portrom>
 ```
 - On Termux Android (not tested)
 ```shell
@@ -70,7 +70,7 @@
     ./setup.sh
     # Enter root mode 
     tsu
-    ./hyperos_port.sh <baserom> <portrom>
+    ./port.sh <baserom> <portrom>
 ```
 - baserom and portrom can be a direct download link. you can get the ota download link  from third-party websites.
 
