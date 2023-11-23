@@ -100,7 +100,7 @@ ui_print "- 开始刷机"
 ui_print " "
 
 #boot
-if [[ $ZIPFILE == *ROOT* ]]; then
+if [[ $ZIPFILE == *ROOT* ]] && [[ -f boot_tv.img ]]; then
     package_extract_file "boot_tv.img" "/dev/block/bootdevice/by-name/boot"
 else
     package_extract_file "boot_official.img" "/dev/block/bootdevice/by-name/boot"

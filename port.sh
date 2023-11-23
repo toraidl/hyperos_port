@@ -78,18 +78,12 @@ patch_smali() {
             search_pattern=$3
             repalcement_pattern=$4
             sed -i "s/$search_pattern/$repalcement_pattern/g" $targetsmali
-            #rm -rf ${targetfilefullpath}
             java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/$foldername/${smalidir} -o tmp/$foldername/${smalidir}.dex > /dev/null 2>&1 || error " Smaling 失败"
             pushd tmp/$foldername/ >/dev/null || exit
-            #macOS上用7z添加文件到apk会提示错误,jar正常
-            #fixme
-            if [[ "$OSTYPE" == "darwin"* ]];then
-                zip -our $targetfilename ${smalidir}.dex > /dev/null 2>&1 || error "修改$targetfilename失败"
-            else
-                7z a -y -mx0 $targetfilename ${smalidir}.dex  > /dev/null 2>&1 || error "修改$targetfilename失败"
-            fi
+            7z a -y -mx0 -tzip $targetfilename ${smalidir}.dex  > /dev/null 2>&1 || error "修改$targetfilename失败"
             popd >/dev/null || exit
-            cp -rf tmp/$foldername/$targetfilename ${targetfilefullpath}
+            rm -rf ${targetfilefullpath}
+            zipalign -p -f -v 4 tmp/$foldername/$targetfilename ${targetfilefullpath} > /dev/null 2>&1 
             fi
     fi
 
@@ -912,3 +906,6 @@ hash=$(md5sum out/hyperos_${device_code}_${port_rom_version}.zip |head -c 10)
 mv out/hyperos_${device_code}_${port_rom_version}.zip out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip
 green "移植完毕"    
 green "输出包为 $(pwd)/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip"
+if [[ $pack_type == "EROFS" ]];then
+    yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！"
+fi
