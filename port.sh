@@ -22,31 +22,96 @@ work_dir=$(pwd)
 tools_dir=${work_dir}/bin/$(uname)/$(uname -m)
 export PATH=$(pwd)/bin/$(uname)/$(uname -m)/:$PATH
 
+# 定义颜色输出函数
+# Define color output function
+error() {
+    if [ "$#" -eq 2 ]; then
+        
+        if [[ "$LANG" == zh_CN* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$1"\033[0m"
+        elif [[ "$LANG" == en* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$2"\033[0m"
+        fi
+    elif [ "$#" -eq 1 ]; then
+        echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$1"\033[0m"
+    else
+        echo "Usage: error <Chinese> <English>"
+    fi
+}
+
+yellow() {
+    if [ "$#" -eq 2 ]; then
+        
+        if [[ "$LANG" == zh_CN* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;33m"$1"\033[0m"
+        elif [[ "$LANG" == en* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;33m"$2"\033[0m"
+        fi
+    elif [ "$#" -eq 1 ]; then
+        echo -e \[$(date +%m%d-%T)\] "\033[1;33m"$1"\033[0m"
+    else
+        echo "Usage: yellow <Chinese> <English>"
+    fi
+}
+
+blue() {
+    if [ "$#" -eq 2 ]; then
+        
+        if [[ "$LANG" == zh_CN* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$1"\033[0m"
+        elif [[ "$LANG" == en* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$2"\033[0m"
+        fi
+    elif [ "$#" -eq 1 ]; then
+        echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$1"\033[0m"
+    else
+        echo "Usage: blue <Chinese> <English>"
+    fi
+}
+
+green() {
+    if [ "$#" -eq 2 ]; then
+        if [[ "$LANG" == zh_CN* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;32m"$1"\033[0m"
+        elif [[ "$LANG" == en* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;32m"$2"\033[0m"
+        fi
+    elif [ "$#" -eq 1 ]; then
+        echo -e \[$(date +%m%d-%T)\] "\033[1;32m"$1"\033[0m"
+    else
+        echo "Usage: green <Chinese> <English>"
+    fi
+}
+
 shopt -s expand_aliases
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "macOS detected,setting alias"
+    yellow "检测到Mac，设置alias" "macOS detected,setting alias"
     alias sed=gsed
     alias tr=gtr
     alias grep=ggrep
     alias du=gdu
     #alias find=gfind
 fi
-# 定义颜色输出函数
-error() {
-    echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$@"\033[0m"
+
+#检查必需命令是否缺少
+#Check for the existence of the requirements command, proceed if it exists, or abort otherwise.
+exists() {
+    command -v "$1" > /dev/null 2>&1
 }
 
-yellow() {
-    echo -e \[$(date +%m%d-%T)\] "\033[1;33m"$@"\033[0m"
+abort() {
+    error "--> Missing $1 abort! please run ./setup.sh first (sudo is required on Linux system)"
+    error "--> 命令 $1 缺失!请重新运行setup.sh (Linux系统sudo ./setup.sh)"
+    exit 1
 }
 
-blue() {
-    echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$@"\033[0m"
+check() {
+    for b in "$@"; do
+        exists "$b" || abort "$b"
+    done
 }
 
-green() {
-	echo -e \[$(date +%m%d-%T)\] "\033[1;32m"$@"\033[0m"
-}
+check unzip aria2c 7z zip java jar zipalign python3 zstd
 
 # 向 apk 或 jar 文件中替换 smali 代码，不支持资源补丁
 # $1: 目标 apk/jar 文件
@@ -57,7 +122,7 @@ patch_smali() {
     targetfilefullpath=$(find build/portrom/images -type f -name $1)
     targetfilename=$(basename $targetfilefullpath)
     if [ -f $targetfilefullpath ];then
-        yellow "正在修改 $targetfilename"
+        yellow "正在修改 $targetfilename" "Modifying $targetfilename"
         foldername=${targetfilename%.*}
         rm -rf tmp/$foldername/
         mkdir -p tmp/$foldername/
@@ -66,85 +131,69 @@ patch_smali() {
         for dexfile in tmp/$foldername/*.dex;do
             smalifname=${dexfile%.*}
             smalifname=$(echo $smalifname | cut -d "/" -f 3)
-            java -jar bin/apktool/baksmali.jar d --api ${port_android_sdk} ${dexfile} -o tmp/$foldername/$smalifname 2>&1 || error " Baksmaling 失败"
+            java -jar bin/apktool/baksmali.jar d --api ${port_android_sdk} ${dexfile} -o tmp/$foldername/$smalifname 2>&1 || error " Baksmaling 失败" "Baksmaling failed"
         done
 
         targetsmali=$(find tmp/$foldername -type f -name $2)
         if [ -f $targetsmali ];then
             smalidir=$(echo $targetsmali |cut -d "/" -f 3)
-            yellow I: 找到目标 $(basename ${targetsmali}) 位于 ${smalidir}.dex 文件
-            
-            yellow I: 开始patch目标 ${smalidir}
+            yellow "I: 开始patch目标 ${smalidir}" "Target ${smalidir} Found"
             search_pattern=$3
             repalcement_pattern=$4
             sed -i "s/$search_pattern/$repalcement_pattern/g" $targetsmali
-            java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/$foldername/${smalidir} -o tmp/$foldername/${smalidir}.dex > /dev/null 2>&1 || error " Smaling 失败"
+            java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/$foldername/${smalidir} -o tmp/$foldername/${smalidir}.dex > /dev/null 2>&1 || error " Smaling 失败" "Smaling failed"
             pushd tmp/$foldername/ >/dev/null || exit
-            7z a -y -mx0 -tzip $targetfilename ${smalidir}.dex  > /dev/null 2>&1 || error "修改$targetfilename失败"
+            7z a -y -mx0 -tzip $targetfilename ${smalidir}.dex  > /dev/null 2>&1 || error "修改$targetfilename失败" "Failed to modify $targetfilename"
             popd >/dev/null || exit
-            rm -rf ${targetfilefullpath}
-            zipalign -p -f -v 4 tmp/$foldername/$targetfilename ${targetfilefullpath} > /dev/null 2>&1 
+            yellow "修补$targetfilename 完成"
+            if [[ $targetfilename == *.apk ]]; then
+                yellow "检测到apk，进行zipalign处理。。" "APK file detected, initiating ZipAlign process..."
+                rm -rf ${targetfilefullpath}
+
+                # Align moddified APKs, to avoid error "Targeting R+ (version 30 and above) requires the resources.arsc of installed APKs to be stored uncompressed and aligned on a 4-byte boundary" 
+                zipalign -p -f -v 4 tmp/$foldername/$targetfilename ${targetfilefullpath} > /dev/null 2>&1 || error "zipalign错误，请检查原因。" "zipalign error,please check for any issues"
+                yellow "apk zipalign处理完成" "APK ZipAlign process completed."
+                yellow "复制APK到目标位置：${targetfilefullpath}" "Copying APK to target ${targetfilefullpath}"
+            else
+                yellow "复制修改文件到目标位置：${targetfilefullpath}" "Copying file to target ${targetfilefullpath}"
+                cp -rf tmp/$foldername/$targetfilename ${targetfilefullpath}
             fi
+        fi
     fi
 
-}
-
-#重新打包apk后会崩，暂不知原因，弃用
-#fixme
-patch_apk() {
-    if [[ $5 == "1" ]];then
-        nores="--no-res"
-    else
-        nores=""
-    fi
-    apkfile=$(find build/portrom/images -type f -name "$1")
-    if [ -f $apkfile ]; then
-        mkdir -p tmp/
-        apkname=$(basename $apkfile | cut -d "." -f 1)
-        bin/apktool/apktool d $nores $apkfile -o tmp/$apkname -f
-        targetSmali=$(find tmp/$apkname -type f -name "$2")
-        yellow "找到目标$targetSmali patching..."
-        if sed -i "s/$3/$4/g" $targetSmali; then 
-            yellow "patch $3成功，开始重新打包并替换$apkfile"
-             bin/apktool/apktool b tmp/$apkname -o $apkname.apk -f
-            cp -Rf $apkname.apk $apkfile
-        else
-            error "patch失败，检查是否方法已改变"
-        fi 
-    fi
 }
 
 # 移植的分区，可在 bin/port_config 中更改
 port_partition=$(grep "partition_to_port" bin/port_config |cut -d '=' -f 2)
 #super_list=$(grep "super_list" bin/port_config |cut -d '=' -f 2)
 repackext4=$(grep "repack_with_ext4" bin/port_config |cut -d '=' -f 2)
-# 检查为本地包还是链接
 
+# 检查为本地包还是链接
 if [ ! -f "${baserom}" ] && [ "$(echo $baserom |grep http)" != "" ];then
-    blue "底包为一个链接，正在尝试下载"
+    blue "底包为一个链接，正在尝试下载" "Download link detected, start downloding.."
     aria2c --max-download-limit=1024M --file-allocation=none -s10 -x10 -j10 ${baserom}
     baserom=$(basename ${baserom})
     if [ ! -f "${baserom}" ];then
-        error "下载错误"
+        error "下载错误" "Download error!"
     fi
 elif [ -f "${baserom}" ];then
-    green "底包: ${baserom}"
+    green "底包: ${baserom}" "BASEROM: ${baserom}"
 else
-    error "底包参数错误"
+    error "底包参数错误" "BASEROM: Invalid parameter"
     exit
 fi
 
 if [ ! -f "${portrom}" ] && [ "$(echo ${portrom} |grep http)" != "" ];then
-    blue "移植包为一个链接，正在尝试下载"
+    blue "移植包为一个链接，正在尝试下载"  "Download link detected, start downloding.."
     aria2c --max-download-limit=1024M --file-allocation=none -s10 -x10 -j10 ${portrom}
     portrom=$(basename ${portrom})
     if [ ! -f "${portrom}" ];then
-        error "下载错误"
+        error "下载错误" "Download error!"
     fi
 elif [ -f "${portrom}" ];then
-    green "移植包: ${portrom}"
+    green "移植包: ${portrom}" "PORTROM: ${portrom}"
 else
-    error "移植包参数错误"
+    error "移植包参数错误" "PORTROM: Invalid parameter"
     exit
 fi
 
@@ -154,8 +203,7 @@ else
     device_code="YourDevice"
 fi
 
-
-blue "正在检测ROM底包"
+blue "正在检测ROM底包" "Validating BASEROM.."
 if unzip -l ${baserom} | grep -q "payload.bin"; then
     baserom_type="payload"
     super_list="vendor mi_ext odm odm_dlkm system system_dlkm vendor_dlkm product product_dlkm system_ext"
@@ -164,16 +212,16 @@ elif unzip -l ${baserom} | grep -q "br$";then
     super_list="vendor mi_ext odm system product system_ext"
     
 else
-    error "底包中未发现payload.bin以及br文件，请使用MIUI官方包后重试"
+    error "底包中未发现payload.bin以及br文件，请使用MIUI官方包后重试" "payload.bin/new.br not found, please use HyperOS official OTA zip package."
     exit
 fi
 
-blue "开始检测ROM移植包"
-unzip -l ${portrom} |grep "payload.bin" 1>/dev/null 2>&1 ||{ error "目标移植包没有payload.bin，请用MIUI官方包作为移植包"; exit 1; }
+blue "开始检测ROM移植包" "Validating PORTROM.."
+unzip -l ${portrom} |grep "payload.bin" 1>/dev/null 2>&1 || error "目标移植包没有payload.bin，请用MIUI官方包作为移植包" "payload.bin not found, please use HyperOS official OTA zip package."
 
-green "ROM初步检测通过"
+green "ROM初步检测通过" "ROM validation passed."
 
-blue "正在清理文件"
+blue "正在清理文件" "Cleaning up.."
 for i in ${port_partition};do
     [ -d ./${i} ] && rm -rf ./${i}
 done
@@ -184,35 +232,34 @@ sudo rm -rf build/baserom/
 sudo rm -rf build/portrom/
 find . -type d -name 'hyperos_*' |xargs rm -rf
 
-green "文件清理完毕"
-
-
+green "文件清理完毕" "Files cleaned up."
 mkdir -p build/baserom/images/
 mkdir -p build/baserom/config/
 mkdir -p build/portrom/images/
 mkdir -p build/portrom/config/
+
 # 提取分区
 if [ ${baserom_type} = 'payload' ];then
-    blue "正在提取底包 [payload.bin]"
-    unzip ${baserom} payload.bin -d build/baserom > /dev/null 2>&1 ||error "解压底包 [payload.bin] 时出错"
-    green "底包 [payload.bin] 提取完毕"
+    blue "正在提取底包 [payload.bin]" "Extracting files from BASEROM [payload.bin]"
+    unzip ${baserom} payload.bin -d build/baserom > /dev/null 2>&1 ||error "解压底包 [payload.bin] 时出错" "Extracting [payload.bin] error"
+    green "底包 [payload.bin] 提取完毕" "[payload.bin] extracted."
 else
-    blue "正在提取底包 [new.dat.br]"
-    unzip ${baserom} -d build/baserom  > /dev/null 2>&1 || error "解压底包 [new.dat.br]时出错"
-    green "底包 [new.dat.br] 提取完毕"
+    blue "正在提取底包 [new.dat.br]" "Extracting files from BASEROM [*.new.dat.br]"
+    unzip ${baserom} -d build/baserom  > /dev/null 2>&1 || error "解压底包 [new.dat.br]时出错" "Extracting [new.dat.br] error"
+    green "底包 [new.dat.br] 提取完毕" "[new.dat.br] extracted."
 fi
 
-blue "正在提取移植包 [payload.bin]"
-unzip ${portrom} payload.bin -d build/portrom  > /dev/null 2>&1 ||error "解压移植包 [payload.bin] 时出错"
-green "移植包 [payload.bin] 提取完毕"
+blue "正在提取移植包 [payload.bin]" "Extracting files from PROTROM [payload.bin]"
+unzip ${portrom} payload.bin -d build/portrom  > /dev/null 2>&1 ||error "解压移植包 [payload.bin] 时出错"  "Extracting [payload.bin] error"
+green "移植包 [payload.bin] 提取完毕" "[payload.bin] extracted."
 
 if [ ${baserom_type} = 'payload' ];then
 
-    blue "开始分解底包 [payload.bin]"
-    payload-dumper-go -o build/baserom/images/ build/baserom/payload.bin >/dev/null 2>&1 ||error "分解底包 [payload.bin] 时出错"
+    blue "开始分解底包 [payload.bin]" "Unpacking [payload.bin]"
+    payload-dumper-go -o build/baserom/images/ build/baserom/payload.bin >/dev/null 2>&1 ||error "分解底包 [payload.bin] 时出错" "Unpacking [payload.bin] failed"
 else
-    blue "开始分解底包 [new.dat.br]"
-        for i in ${super_list}; do
+    blue "开始分解底包 [new.dat.br]" "Unpacking [new.dat.br]"
+        for i in ${super_list}; do 
             ${tools_dir}/brotli -d build/baserom/$i.new.dat.br >/dev/null 2>&1
             sudo python3 ${tools_dir}/sdat2img.py build/baserom/$i.transfer.list build/baserom/$i.new.dat build/baserom/images/$i.img >/dev/null 2>&1
             rm -rf $i.new.data.* $i.transfer.list $i.patch.*
@@ -223,16 +270,16 @@ for part in system system_dlkm system_ext product product_dlkm mi_ext ;do
     if [[ -f build/baserom/images/${part}.img ]];then 
         if [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "ext" ]];then
             pack_type=EXT
-            blue "正在分解底包 ${part}.img [ext]"
+            blue "正在分解底包 ${part}.img [ext]" "Extracing ${part}.img [ext]"
             sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img >/dev/null 2>&1
-            blue "分解底包 [${part}.img] 完成"
+            blue "分解底包 [${part}.img] 完成" "${part}.img [ext] extracted."
             mv ${part} build/baserom/images/
             
         elif [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "erofs" ]]; then
             pack_type=EROFS
-            blue "正在分解底包 ${part}.img [erofs]"
-            extract.erofs -x -i build/baserom/images/${part}.img  > /dev/null 2>&1 || error "分解 ${part}.img 失败"
-                blue "分解底包 [${part}.img][ext] 完成"
+            blue "正在分解底包 ${part}.img [erofs]" "Extracing ${part}.img [erofs]"
+            extract.erofs -x -i build/baserom/images/${part}.img  > /dev/null 2>&1 || error "分解 ${part}.img 失败" "Extracting ${part}.img failed."
+            blue "分解底包 [${part}.img][erofs] 完成" "${part}.img [erofs] extracted."
             mv ${part} build/baserom/images/
             
         fi
@@ -248,60 +295,56 @@ for image in vendor odm vendor_dlkm odm_dlkm;do
 done
 
 # 分解镜像
-green 开始提取逻辑分区镜像
+green "开始提取逻辑分区镜像" "Starting extract partition from img"
 
 for part in ${super_list};do
     if [[ $part =~ ^(vendor|odm|vendor_dlkm|odm_dlkm)$ ]] && [[ -f "build/portrom/images/$part.img" ]]; then
-        blue "从底包中提取 [${part}]分区 ..."
-        blue "Extracting [${part}] from baserom"
+        blue "从底包中提取 [${part}]分区 ..." "Extracting [${part}] from BASEROM"
     else
-        blue "payload.bin 提取 [${part}] 分区..."
-        blue "Extracting [${part}] from payload.bin"
-        payload-dumper-go -p ${part} -o build/portrom/images/ build/portrom/payload.bin >/dev/null 2>&1 ||error "提取移植包 [${part}] 分区时出错"
+        blue "payload.bin 提取 [${part}] 分区..." "Extracting [${part}] from payload.bin"
+        payload-dumper-go -p ${part} -o build/portrom/images/ build/portrom/payload.bin >/dev/null 2>&1 ||error "提取移植包 [${part}] 分区时出错" "Extracting partition [${part}] error."
     fi
     if [ -f "${work_dir}/build/portrom/images/${part}.img" ];then
-        blue 开始提取 ${part}.img
+        blue "开始提取 ${part}.img" "Extracting ${part}.img"
         
         if [[ $($tools_dir/gettype -i build/portrom/images/${part}.img) == "ext" ]];then
             pack_type=EXT
-            python3 bin/imgextractor/imgextractor.py build/portrom/images/${part}.img > /dev/null 2>&1 || error "提取${part}失败"
+            python3 bin/imgextractor/imgextractor.py build/portrom/images/${part}.img > /dev/null 2>&1 || error "提取${part}失败" "Extracting partition ${part} failed"
             mv ${part} build/portrom/images/
             mkdir -p build/portrom/images/${part}/lost+found
             mv config/*${part}* build/portrom/config/
             
             rm -rf build/portrom/images/${part}.img
 
-            green "提取 [${part}] [ext]镜像完毕"
+            green "提取 [${part}] [ext]镜像完毕" "Extracting [${part}].img [ext] done"
         elif [[ $(gettype -i build/portrom/images/${part}.img) == "erofs" ]];then
             pack_type=EROFS
-            green "移植包为 [erofs] 文件系统"
+            green "移植包为 [erofs] 文件系统" "PORTROM filesystem: [erofs]. "
             [ "${repackext4}" = "true" ] && pack_type=EXT
-            extract.erofs -x -i build/portrom/images/${part}.img  > /dev/null 2>&1 || error "提取${part}失败"
+            extract.erofs -x -i build/portrom/images/${part}.img  > /dev/null 2>&1 || error "提取${part}失败" "Extracting ${part} failed"
             mv ${part} build/portrom/images/
             mkdir -p build/portrom/images/${part}/lost+found
             mv config/*${part}* build/portrom/config/
             rm -rf build/portrom/images/${part}.img
 
-            green "提取移植包[${part}] [erofs]镜像完毕"
+            green "提取移植包[${part}] [erofs]镜像完毕" "Extracting ${part} [erofs] done."
         fi
         
     fi
 done
 rm -rf config
 
+blue "正在获取ROM参数" "Fetching ROM build prop."
 
-# 获取ROM参数
-
-blue "正在获取ROM参数"
 # 安卓版本
 base_android_version=$(< build/portrom/images/vendor/build.prop grep "ro.vendor.build.version.release" |awk 'NR==1' |cut -d '=' -f 2)
 port_android_version=$(< build/portrom/images/system/system/build.prop grep "ro.system.build.version.release" |awk 'NR==1' |cut -d '=' -f 2)
-green "安卓版本: 底包为[Android ${base_android_version}], 移植包为 [Android ${port_android_version}]"
+green "安卓版本: 底包为[Android ${base_android_version}], 移植包为 [Android ${port_android_version}]" "Android Version: BASEROM:[Android ${base_android_version}], PORTROM [Android ${port_android_version}]"
 
 # SDK版本
 base_android_sdk=$(< build/portrom/images/vendor/build.prop grep "ro.vendor.build.version.sdk" |awk 'NR==1' |cut -d '=' -f 2)
 port_android_sdk=$(< build/portrom/images/system/system/build.prop grep "ro.system.build.version.sdk" |awk 'NR==1' |cut -d '=' -f 2)
-green "SDK 版本: 底包为 [SDK ${base_android_sdk}], 移植包为 [SDK ${port_android_sdk}]"
+green "SDK 版本: 底包为 [SDK ${base_android_sdk}], 移植包为 [SDK ${port_android_sdk}]" "SDK Verson: BASEROM: [SDK ${base_android_sdk}], PORTROM: [SDK ${port_android_sdk}]"
 
 # ROM版本
 base_rom_version=$(< build/portrom/images/vendor/build.prop grep "ro.vendor.build.version.incremental" |awk 'NR==1' |cut -d '=' -f 2)
@@ -313,32 +356,25 @@ port_mios_version_incremental=$(< build/portrom/images/mi_ext/etc/build.prop gre
 port_device_code=$(echo $port_mios_version_incremental | cut -d "." -f 5)
 
 if [[ $port_mios_version_incremental == *DEV* ]];then
-    yellow "Dev deteced,skip replacing codename"
+    yellow "检测到开发板，跳过修改版本代码" "Dev deteced,skip replacing codename"
     port_rom_version=$(echo $port_mios_version_incremental)
 else
     base_device_code=U$(echo $base_rom_version | cut -d "." -f 5 | cut -c 2-)
     port_rom_version=$(echo $port_mios_version_incremental | sed "s/$port_device_code/$base_device_code/")
 fi
-green "ROM 版本: 底包为 [${base_rom_version}], 移植包为 [${port_rom_version}]"
-
-# MIUI版本
-base_miui_version=$(< build/baserom/images/product/etc/build.prop grep "ro.miui.ui.version.code" |awk 'NR==1' |cut -d '=' -f 2)
-port_miui_version=$(< build/portrom/images/product/etc/build.prop grep "ro.miui.ui.version.code" |awk 'NR==1' |cut -d '=' -f 2)
-
-green "MIUI版本: 底包为 [${base_miui_version}], 移植包为 [${port_miui_version}]"
-
+green "ROM 版本: 底包为 [${base_rom_version}], 移植包为 [${port_rom_version}]" "ROM Version: BASEROM: [${base_rom_version}], PORTROM: [${port_rom_version}] "
 
 # 代号
 base_rom_code=$(< build/portrom/images/vendor/build.prop grep "ro.product.vendor.device" |awk 'NR==1' |cut -d '=' -f 2)
 port_rom_code=$(< build/portrom/images/product/etc/build.prop grep "ro.product.product.name" |awk 'NR==1' |cut -d '=' -f 2)
-green "机型代号: 底包为 [${base_rom_code}], 移植包为 [${port_rom_code}]"
+green "机型代号: 底包为 [${base_rom_code}], 移植包为 [${port_rom_code}]" "Device Code: BASEROM: [${base_rom_code}], PORTROM: [${port_rom_code}]"
 
 
 
 baseAospFrameworkResOverlay=$(find build/baserom/images/product -type f -name "AospFrameworkResOverlay.apk")
 portAospFrameworkResOverlay=$(find build/portrom/images/product -type f -name "AospFrameworkResOverlay.apk")
 if [ -f "${baseAospFrameworkResOverlay}" ] && [ -f "${portAospFrameworkResOverlay}" ];then
-    blue "正在替换 [AospFrameworkResOverlay.apk]"
+    blue "正在替换 [AospFrameworkResOverlay.apk]" "Replacing [AospFrameworkResOverlay.apk]" 
     cp -rf ${baseAospFrameworkResOverlay} ${portAospFrameworkResOverlay}
 fi
 
@@ -360,21 +396,21 @@ fi
 baseDevicesAndroidOverlay=$(find build/baserom/images/product -type f -name "DevicesAndroidOverlay.apk")
 portDevicesAndroidOverlay=$(find build/portrom/images/product -type f -name "DevicesAndroidOverlay.apk")
 if [ -f "${baseDevicesAndroidOverlay}" ] && [ -f "${portDevicesAndroidOverlay}" ];then
-    blue "正在替换 [DevicesAndroidOverlay.apk]"
+    blue "正在替换 [DevicesAndroidOverlay.apk]" "Replacing [DevicesAndroidOverlay.apk]"
     cp -rf ${baseDevicesAndroidOverlay} ${portDevicesAndroidOverlay}
 fi
 
 baseDevicesOverlay=$(find build/baserom/images/product -type f -name "DevicesOverlay.apk")
 portDevicesOverlay=$(find build/portrom/images/product -type f -name "DevicesOverlay.apk")
 if [ -f "${baseDevicesOverlay}" ] && [ -f "${portDevicesOverlay}" ];then
-    blue "正在替换 [DevicesOverlay.apk]"
+    blue "正在替换 [DevicesOverlay.apk]" "Replacing [DevicesOverlay.apk]"
     cp -rf ${baseDevicesOverlay} ${portDevicesOverlay}
 fi
 
 baseMiuiBiometricResOverlay=$(find build/baserom/images/product -type f -name "MiuiBiometricResOverlay.apk")
 portMiuiBiometricResOverlay=$(find build/portrom/images/product -type f -name "MiuiBiometricResOverlay.apk")
 if [ -f "${baseMiuiBiometricResOverlay}" ] && [ -f "${portMiuiBiometricResOverlay}" ];then
-    blue "正在替换 [MiuiBiometricResOverlay.apk]"
+    blue "正在替换 [MiuiBiometricResOverlay.apk]" "Replacing [MiuiBiometricResOverlay.apk]"
     cp -rf ${baseMiuiBiometricResOverlay} ${portMiuiBiometricResOverlay}
 fi
 
@@ -413,7 +449,7 @@ fi
 # displayconfig id
 for display_id_file in $(find build/baserom/images/product/etc/displayconfig/ -type f -name "display_id*.xml");do
     display_id=$(basename $display_id_file)
-    blue "Copying display_id $display_id to PortROM"
+    blue "复制display_id $display_id 到移植包" "Copying display_id $display_id to PortROM"
     cp -rf $(ls -1 build/portrom/images/product/etc/displayconfig/display_id_*.xml | head -n 1) build/portrom/images/product/etc/displayconfig/$display_id 
 done
 
@@ -445,23 +481,22 @@ cp -rf build/baserom/images/product/etc/device_features/* build/portrom/images/p
 baseMiuiBiometric=$(find build/baserom/images/product/app -type d -name "MiuiBiometric*")
 portMiuiBiometric=$(find build/portrom/images/product/app -type d -name "MiuiBiometric*")
 if [ -d "${baseMiuiBiometric}" ] && [ -d "${portMiuiBiometric}" ];then
-    yellow "Searching and Replacing MiuiBiometric.."
+    yellow "查找MiuiBiometric" "Searching and Replacing MiuiBiometric.."
     rm -rf ./${portMiuiBiometric}/*
     cp -rf ./${baseMiuiBiometric}/* ${portMiuiBiometric}/
 else
     if [ -d "${baseMiuiBiometric}" ] && [ ! -d "${portMiuiBiometric}" ];then
-        blue "MiuiBiometric is missing, copying from base..."
+        blue "未找到MiuiBiometric，替换为原包" "MiuiBiometric is missing, copying from base..."
         cp -rf ${baseMiuiBiometric} build/portrom/images/product/app/
     fi
 fi
-
 
 # 修复AOD问题
 targetDevicesAndroidOverlay=$(find build/portrom/images/product -type f -name "DevicesAndroidOverlay.apk")
 if [[ -f $targetDevicesAndroidOverlay ]]; then
     mkdir tmp/  
     filename=$(basename $targetDevicesAndroidOverlay)
-    yellow "Fixing AOD issue: $filename ..."
+    yellow "修复息屏和屏下指纹问题" "Fixing AOD issue: $filename ..."
     targetDir=$(echo "$filename" | sed 's/\..*$//')
     bin/apktool/apktool d $targetDevicesAndroidOverlay -o tmp/$targetDir -f > /dev/null 2>&1
     search_pattern="com\.miui\.aod\/com\.miui\.aod\.doze\.DozeService"
@@ -469,23 +504,16 @@ if [[ -f $targetDevicesAndroidOverlay ]]; then
     for xml in $(find tmp/$targetDir -type f -name "*.xml");do
         sed -i "s/$search_pattern/$replacement_pattern/g" $xml
     done
-    bin/apktool/apktool b tmp/$targetDir -o tmp/$filename > /dev/null 2>&1 || error "apktool 打包失败"
-    yellow "$targetDevicesAndroidOverlay"
-    cp -rf tmp/$filename $targetDevicesAndroidOverlay
+    bin/apktool/apktool b tmp/$targetDir -o tmp/$filename > /dev/null 2>&1 || error "apktool 打包失败" "apktool mod failed"
+    cp -rfv tmp/$filename $targetDevicesAndroidOverlay
     rm -rf tmp
 fi
-
-
-
-# 修复NFC
-blue "正在修复/替换 NFC"
-yellow "TODO"
 
 #其他机型可能没有default.prop
 for prop_file in $(find build/portrom/images/vendor/ -name "*.prop"); do
     vndk_version=$(< "$prop_file" grep "ro.vndk.version" | awk "NR==1" | cut -d '=' -f 2)
     if [ -n "$vndk_version" ]; then
-        yellow "ro.vndk.version found in $prop_file: $vndk_version"
+        yellow "ro.vndk.version为$vndk_version" "ro.vndk.version found in $prop_file: $vndk_version"
         break  
     fi
 done
@@ -493,7 +521,7 @@ baseVndk=$(find build/baserom/images/system_ext/apex -type f -name "com.android.
 portVndk=$(find build/portrom/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
 
 if [ ! -f "${portVndk}" ]; then
-    yellow "target apex is missing, copying from baserom"
+    yellow "apex不存在，从原包复制" "target apex is missing, copying from baserom"
     cp -rf "${baseVndk}" "build/portrom/images/system_ext/apex/"
 fi
 
@@ -502,24 +530,24 @@ targetVintf=$(find build/portrom/images/system_ext/etc/vintf -type f -name "mani
 if [ -f "$targetVintf" ]; then
     # Check if the file contains $vndk_version
     if grep -q "<version>$vndk_version</version>" "$targetVintf"; then
-        echo "The file already contains the version $vndk_version. Skipping modification."
+        yellow "${vndk_version}已存在，跳过修改" "The file already contains the version $vndk_version. Skipping modification."
     else
         # If it doesn't contain $vndk_version, then add it
         ndk_version="<vendor-ndk>\n     <version>$vndk_version</version>\n </vendor-ndk>"
         sed -i "/<\/vendor-ndk>/a$ndk_version" "$targetVintf"
-        echo "Version $vndk_version added to $targetVintf"
+        yellow "添加成功" "Version $vndk_version added to $targetVintf"
     fi
 else
-    echo "File $targetVintf not found."
+    blue "File $targetVintf not found."
 fi
-blue "左侧挖孔灵动岛修复"
+blue "左侧挖孔灵动岛修复" "StrongToast UI fix"
 patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v10\, 0x0" "iget-object v10\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v10}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v10\\n\\tint-to-float v10,v10"
 
 #blue "不优雅的方案解决开机软重启问题"
 #fixme 
 #patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
 
-blue "去除安卓14应用签名限制"
+blue "去除安卓14应用签名限制" "Disalbe Android 14 Apk Signature Verfier"
 patch_smali "framework.jar" "ApkSignatureVerifier.smali" "const\/4 v0, 0x2" "const\/4 v0, 0x1" 
 # 修复软重启
 
@@ -528,8 +556,8 @@ if [ -f build/portrom/images/system/system/etc/init/hw/init.rc ];then
 	sed -i '/on boot/a\'$'\n''    chmod 0731 \/data\/system\/theme' build/portrom/images/system/system/etc/init/hw/init.rc
 fi
 
-# 删除多余的App
-rm -rf build/portrom/images/product/app/MSA
+yellow "删除多余的App" "Debloating..."
+ rm -rf build/portrom/images/product/app/MSA
 rm -rf build/portrom/images/product/priv-app/MSA
 rm -rf build/portrom/images/product/app/mab
 rm -rf build/portrom/images/product/priv-app/mab
@@ -572,14 +600,14 @@ rm -rf build/portrom/images/product/media/theme/miui_mod_icons/com.google.androi
 rm -rf build/portrom/images/product/media/theme/miui_mod_icons/dynamic/com.google.android.apps.nbu*
 
 # build.prop 修改
-blue "正在修改 build.prop"
+blue "正在修改 build.prop" "Modifying build.prop"
 #
 #change the locale to English
 export LC_ALL=en_US.UTF-8
 buildDate=$(date -u +"%a %b %d %H:%M:%S UTC %Y")
 buildUtc=$(date +%s)
 for i in $(find build/portrom/images -type f -name "build.prop");do
-    blue "正在处理 ${i}"
+    blue "正在处理 ${i}" "modifying ${i}"
     sed -i "s/ro.build.date=.*/ro.build.date=${buildDate}/g" ${i}
     sed -i "s/ro.build.date.utc=.*/ro.build.date.utc=${buildUtc}/g" ${i}
     sed -i "s/ro.odm.build.date=.*/ro.odm.build.date=${buildDate}/g" ${i}
@@ -617,12 +645,11 @@ done
 #sed -i -e '$a\'$'\n''persist.sys.disable_rescue=true' build/portrom/images/system/system/build.prop
 #sed -i -e '$a\'$'\n''persist.miui.extm.enable=0' build/portrom/images/system/system/build.prop
 
-
 # 屏幕密度修修改
 for prop in $(find build/baserom/images/product build/baserom/images/system -type f -name "build.prop");do
     base_rom_density=$(< "$prop" grep "ro.sf.lcd_density" |awk 'NR==1' |cut -d '=' -f 2)
     if [ "${base_rom_density}" != "" ];then
-        green "底包屏幕密度值 ${base_rom_density}"
+        green "底包屏幕密度值 ${base_rom_density}" "Screen density: ${base_rom_density}"
         break 
     fi
 done
@@ -633,7 +660,6 @@ done
 found=0
 for prop in $(find build/portrom/images/product build/portrom/images/system -type f -name "build.prop");do
     if grep -q "ro.sf.lcd_density" ${prop};then
-        blue "找到ro.fs.lcd_density，替换值为$base_rom_density" 
         sed -i "s/ro.sf.lcd_density=.*/ro.sf.lcd_density=${base_rom_density}/g" ${prop}
         found=1
     fi
@@ -641,7 +667,7 @@ for prop in $(find build/portrom/images/product build/portrom/images/system -typ
 done
 
 if [ $found -eq 0  ]; then
-        blue "未找到ro.fs.lcd_density，build.prop新建一个值$base_rom_density"
+        blue "未找到ro.fs.lcd_density，build.prop新建一个值$base_rom_density" "ro.fs.lcd_density not found, create a new value ${base_rom_density} "
         echo "ro.sf.lcd_density=${base_rom_density}" >> build/portrom/images/product/etc/build.prop
 fi
 
@@ -669,21 +695,21 @@ if [[ -d "devices/${base_rom_code}/overlay" ]]; then
     rm -rf $targetCamera $targetNFCFolder
     cp -rfv devices/${base_rom_code}/overlay/* build/portrom/images/
 else
-    yellow "devices/${base_rom_code}/overlay 未找到"
+    yellow "devices/${base_rom_code}/overlay 未找到" "devices/${base_rom_code}/overlay not found" 
 fi
 
 #添加erofs文件系统fstab
 if [ ${pack_type} == "EROFS" ];then
-    yellow "检查 vendor fstab.com是否需要添加erofs挂载点"
+    yellow "检查 vendor fstab.qcom是否需要添加erofs挂载点" "Validating whether adding erofs mount points is needed."
     if ! grep -q "erofs" build/portrom/images/vendor/etc/fstab.qcom ; then
                for pname in system odm vendor product mi_ext system_ext; do
                      sed -i "/\/${pname}[[:space:]]\+ext4/{p;s/ext4/erofs/;}" build/portrom/images/vendor/etc/fstab.qcom
                      added_line=$(sed -n "/\/${pname}[[:space:]]\+erofs/p" build/portrom/images/vendor/etc/fstab.qcom)
     
                     if [ -n "$added_line" ]; then
-                        yellow "添加$pname"
+                        yellow "添加$pname" "Adding mount point $pname"
                     else
-                        error "添加失败，请检查"
+                        error "添加失败，请检查" "Adding faild, please check."
                         exit 1
                         
                     fi
@@ -692,7 +718,7 @@ if [ ${pack_type} == "EROFS" ];then
 fi
 
 # 去除avb校验
-blue "去除avb校验"
+blue "去除avb校验" "Disable avb verification."
 for fstab in $(find build/portrom/images/ -type f -name "fstab.*");do
     blue "Target: $fstab"
     sed -i "s/,avb_keys=.*avbpubkey//g" $fstab
@@ -725,8 +751,8 @@ for pname in ${port_partition};do
 done
 echo "${pack_type}">fstype.txt
 superSize=$(bash bin/getSuperSize.sh $device_code)
-green "Super大小为${superSize}"
-green 开始打包镜像
+green "Super大小为${superSize}" "Super image size: ${superSize}"
+green "开始打包镜像" "Packing super.img"
 for pname in ${super_list};do
     if [ -d "build/portrom/images/$pname" ];then
         if [[ "$OSTYPE" == "darwin"* ]];then
@@ -742,7 +768,6 @@ for pname in ${super_list};do
             *) addSize=8554432 ;;
         esac
         if [ "$pack_type" = "EXT" ];then
-            blue "$pname"为EXT4文件系统多分配大小$addSize
             for fstab in $(find build/portrom/images/${pname}/ -type f -name "fstab.*");do
                 #sed -i '/overlay/d' $fstab
                 sed -i '/system * erofs/d' $fstab
@@ -751,29 +776,29 @@ for pname in ${super_list};do
                 sed -i '/product * erofs/d' $fstab
             done
             thisSize=$(echo "$thisSize + $addSize" |bc)
-            blue 以[$pack_type]文件系统打包[${pname}.img]大小[$thisSize]
+            blue 以[$pack_type]文件系统打包[${pname}.img]大小[$thisSize] "Packing [${pname}.img]:[$pack_type] with size [$thisSize]"
             python3 bin/fspatch.py build/portrom/images/${pname} build/portrom/config/${pname}_fs_config
             python3 bin/contextpatch.py build/portrom/images/${pname} build/portrom/config/${pname}_file_contexts
             make_ext4fs -J -T $(date +%s) -S build/portrom/config/${pname}_file_contexts -l $thisSize -C build/portrom/config/${pname}_fs_config -L ${pname} -a ${pname} build/portrom/images/${pname}.img build/portrom/images/${pname}
 
             if [ -f "build/portrom/images/${pname}.img" ];then
-                green "成功以大小 [$thisSize] 打包 [${pname}.img] [${pack_type}] 文件系统"
+                green "成功以大小 [$thisSize] 打包 [${pname}.img] [${pack_type}] 文件系统" "Packing [${pname}.img] with[${pack_type}], size: [$thisSize] "
                 #rm -rf build/baserom/images/${pname}
             else
-                error "以 [${pack_type}] 文件系统打包 [${pname}] 分区失败"
+                error "以 [${pack_type}] 文件系统打包 [${pname}] 分区失败" "Packing [${pname}] with[${pack_type}] filesystem failed!"
             fi
         else
             
-                blue 以[$pack_type]文件系统打包[${pname}.img]
+                blue 以[$pack_type]文件系统打包[${pname}.img] "Packing [${pname}.img] with [$pack_type] filesystem"
                 python3 bin/fspatch.py build/portrom/images/${pname} build/portrom/config/${pname}_fs_config
                 python3 bin/contextpatch.py build/portrom/images/${pname} build/portrom/config/${pname}_file_contexts
                 #sudo perl -pi -e 's/\\@/@/g' build/portrom/config/${pname}_file_contexts
                 mkfs.erofs --mount-point ${pname} --fs-config-file build/portrom/config/${pname}_fs_config --file-contexts build/portrom/config/${pname}_file_contexts build/portrom/images/${pname}.img build/portrom/images/${pname}
                 if [ -f "build/portrom/images/${pname}.img" ];then
-                    green "成功以 [erofs] 文件系统打包 [${pname}.img]"
+                    green "成功以 [erofs] 文件系统打包 [${pname}.img]" "Packing [${pname}.img] successfully with [erofs] format"
                     #rm -rf build/portrom/images/${pname}
                 else
-                    error "以 [${pack_type}] 文件系统打包 [${pname}] 分区失败"
+                    error "以 [${pack_type}] 文件系统打包 [${pname}] 分区失败" "Faield to pack [${pname}]"
                     exit 1
                 fi
         fi
@@ -786,7 +811,7 @@ rm fstype.txt
 # 打包 super.img
 
 if [ "${baserom_type}" = "br" ];then
-    blue "打包A-only super.img"
+    blue "打包A-only super.img" "Packing super.img for A-only device"
     lpargs="-F --output build/portrom/images/super.img --metadata-size 65536 --super-name super --metadata-slots 2 --block-size 4096 --device super:$superSize --group=qti_dynamic_partitions:$superSize"
     for pname in odm mi_ext system system_ext product vendor;do
         if [ -f "build/portrom/images/${pname}.img" ];then
@@ -795,7 +820,7 @@ if [ "${baserom_type}" = "br" ];then
             else
                 subsize=$(du -sb build/portrom/images/${pname}.img |tr -cd 0-9)
             fi
-            green Super 子分区 [$pname] 大小 [$subsize]
+            green "Super 子分区 [$pname] 大小 [$subsize]" "Super sub-partition [$pname] size: [$subsize]"
             args="--partition ${pname}:none:${subsize}:qti_dynamic_partitions --image ${pname}=build/portrom/images/${pname}.img"
             lpargs="$lpargs $args"
             unset subsize
@@ -803,13 +828,13 @@ if [ "${baserom_type}" = "br" ];then
         fi
     done
 else
-    blue "打包V-A/B机型 super.img"
+    blue "打包V-A/B机型 super.img" "Packing super.img for V-AB device"
     lpargs="-F --virtual-ab --output build/portrom/images/super.img --metadata-size 65536 --super-name super --metadata-slots 3 --device super:$superSize --group=qti_dynamic_partitions_a:$superSize --group=qti_dynamic_partitions_b:$superSize"
 
     for pname in ${super_list};do
         if [ -f "build/portrom/images/${pname}.img" ];then
             subsize=$(du -sb build/portrom/images/${pname}.img |tr -cd 0-9)
-            green Super 子分区 [$pname] 大小 [$subsize]
+            green "Super 子分区 [$pname] 大小 [$subsize]" "Super sub-partition [$pname] size: [$subsize]"
             args="--partition ${pname}_a:none:${subsize}:qti_dynamic_partitions_a --image ${pname}_a=build/portrom/images/${pname}.img --partition ${pname}_b:none:0:qti_dynamic_partitions_b"
             lpargs="$lpargs $args"
             unset subsize
@@ -820,24 +845,20 @@ fi
 lpmake $lpargs
 #echo "lpmake $lpargs"
 if [ -f "build/portrom/images/super.img" ];then
-    green 成功打包 super.img
+    green "成功打包 super.img" "Pakcing super.img done."
 else
-    error 无法打包 super.img
+    error "无法打包 super.img"  "Unable to pack super.img."
     exit 1
 fi
 for pname in ${super_list};do
     rm -rf build/portrom/images/${pname}.img
 done
 
-blue "正在压缩 super.img"
+blue "正在压缩 super.img" "Comprising super.img"
 zstd --rm build/portrom/images/super.img -o build/portrom/images/super.zst
-
-
-
-
 mkdir -p out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/
 
-blue "正在生成刷机脚本"
+blue "正在生成刷机脚本" "Generating flashing scripts"
 if [ "${baserom_type}" = "br" ];then
 
     mv -f build/portrom/images/super.zst out/hyperos_${device_code}_${port_rom_version}/
@@ -904,8 +925,9 @@ popd >/dev/null || exit
 
 hash=$(md5sum out/hyperos_${device_code}_${port_rom_version}.zip |head -c 10)
 mv out/hyperos_${device_code}_${port_rom_version}.zip out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip
-green "移植完毕"    
-green "输出包为 $(pwd)/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip"
+green "移植完毕" "Porting completed"    
+green "输出包路径：" "Output: "
+green "$(pwd)/out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip"
 if [[ $pack_type == "EROFS" ]];then
-    yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！"
+    yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot_tv.img is placed in the device folder."
 fi

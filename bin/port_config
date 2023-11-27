@@ -5,10 +5,10 @@ partition_to_port=system product system_ext mi_ext
 # 可能的super子分区列表
 super_list=vendor mi_ext odm system product system_ext
 
-
 # 打包为 ext4 文件系统（如果底包是erofs） true:是  false:否    意义：解锁system
-repack_with_ext4=false
-
+# Packing/Repacking target ROM filesystem with EXT4 or not. wiht EXT4, you can mount system parititon in read-write mode, which is not possible for EROFS filesystem. 
+repack_with_ext4=true
 
 # 去除data加密   true:是  false:否
+# Remove data encryption or not. if it is false, you cannot access encrypted-data partition in recovery without a A14 supported TWRP.
 remove_data_encryption=false

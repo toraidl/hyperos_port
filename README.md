@@ -13,13 +13,14 @@
 
 ## 测试机型及版本
 - 测试机型小米10 底包 (V14.0.4.0.TJBCNXM)
-- 测试版本 小米14Pro Android 14 OS1.0.09.0.UNBCNXM - OS1.0.20.0.UNBCNXM 官方OTA包
+- 测试版本 小米13/Pro HyperOS1.0 正式版和Dev版 官方OTA包
 
 ## 正常工作
 - 人脸
 - 挖孔
 - 指纹
-- 相机（基础功能）
+- 相机（需另外单独下载附件的相机到devices对应机型目录）
+- NFC
 - 自动亮度
 - 通话息屏
 - 应用双开
@@ -28,12 +29,14 @@
 
 
 ## BUG
-- NFC（mi10可刷卡）
 
 - 等你发现
 
 ## 说明
 - 以上均基于小米10正式版(V14.0.4.0.TJBCNXM)测试
+
+## NFC
+关于NFC，Android13的底包，可以复制项目devices/umi/system/system/app/NQNfcNci/NQNfcNci.apk，devices/umi/overlay/system_ext/framework/com.nxp.nfc.nq.jar和devices/umi/overlay/system_ext/framework/com.xiaomi.nfc.jar 到你想要移植的机型对应目录中。
 
 ## 如何使用
 - 在WSL、ubuntu、deepin等Linux下
@@ -77,3 +80,4 @@
     ./port.sh <底包路径> <移植包路径>
 ```
 - 上述代码中，底包路径和移植包路径可以替换为链接
+
