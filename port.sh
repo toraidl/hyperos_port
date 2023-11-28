@@ -111,7 +111,7 @@ check() {
     done
 }
 
-check unzip aria2c 7z zip java jar zipalign python3 zstd
+check unzip aria2c 7z zip java zipalign python3 zstd
 
 # 向 apk 或 jar 文件中替换 smali 代码，不支持资源补丁
 # $1: 目标 apk/jar 文件
