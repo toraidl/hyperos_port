@@ -688,11 +688,20 @@ echo "ro.millet.netlink=29" >> build/portrom/images/vendor/build.prop
 echo "vendor.perf.framepacing.enable=false" >> build/portrom/images/vendor/build.prop
 
 #自定义替换
+if [[ -d "devices/common" ]];then
+    commonCamera=$(find devices/common -type f -name "MiuiCamera.apk")
+    targetCamera=$(find build/portrom/images/product -type d -name "MiuiCamera")
+    if [[ $base_android_version == "13" ]] && [[ -f $commonCamera ]];then
+        yellow "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
+        rm -rf $targetCamera/*
+        cp -rfv $commonCamera $targetCamera
+    fi
+fi
+
 #Devices/机型代码/overaly 按照镜像的目录结构，可直接替换目标。
 if [[ -d "devices/${base_rom_code}/overlay" ]]; then
     targetNFCFolder=$(find build/portrom/images/system/system build/portrom/images/product build/portrom/images/system_ext -type d -name "NQNfcNci*")
-    targetCamera=$(find build/portrom/images/system/system build/portrom/images/product build/portrom/images/system_ext -type d -name "MiuiCamera")
-    rm -rf $targetCamera $targetNFCFolder
+    rm -rf $targetNFCFolder
     cp -rfv devices/${base_rom_code}/overlay/* build/portrom/images/
 else
     yellow "devices/${base_rom_code}/overlay 未找到" "devices/${base_rom_code}/overlay not found" 
@@ -782,7 +791,7 @@ for pname in ${super_list};do
             make_ext4fs -J -T $(date +%s) -S build/portrom/config/${pname}_file_contexts -l $thisSize -C build/portrom/config/${pname}_fs_config -L ${pname} -a ${pname} build/portrom/images/${pname}.img build/portrom/images/${pname}
 
             if [ -f "build/portrom/images/${pname}.img" ];then
-                green "成功以大小 [$thisSize] 打包 [${pname}.img] [${pack_type}] 文件系统" "Packing [${pname}.img] with[${pack_type}], size: [$thisSize] "
+                green "成功以大小 [$thisSize] 打包 [${pname}.img] [${pack_type}] 文件系统" "Packing [${pname}.img] with [${pack_type}], size: [$thisSize] success"
                 #rm -rf build/baserom/images/${pname}
             else
                 error "以 [${pack_type}] 文件系统打包 [${pname}] 分区失败" "Packing [${pname}] with[${pack_type}] filesystem failed!"
