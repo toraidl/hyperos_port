@@ -145,7 +145,7 @@ patch_smali() {
             pushd tmp/$foldername/ >/dev/null || exit
             7z a -y -mx0 -tzip $targetfilename ${smalidir}.dex  > /dev/null 2>&1 || error "修改$targetfilename失败" "Failed to modify $targetfilename"
             popd >/dev/null || exit
-            yellow "修补$targetfilename 完成"
+            yellow "修补$targetfilename 完成" "Fix $targetfilename completed"
             if [[ $targetfilename == *.apk ]]; then
                 yellow "检测到apk，进行zipalign处理。。" "APK file detected, initiating ZipAlign process..."
                 rm -rf ${targetfilefullpath}
@@ -217,7 +217,13 @@ else
 fi
 
 blue "开始检测ROM移植包" "Validating PORTROM.."
-unzip -l ${portrom} |grep "payload.bin" 1>/dev/null 2>&1 || error "目标移植包没有payload.bin，请用MIUI官方包作为移植包" "payload.bin not found, please use HyperOS official OTA zip package."
+if unzip -l ${portrom} | grep  -q "payload.bin"; then
+    green "ROM初步检测通过" "ROM validation passed."
+elif [[ ${portrom} == *"xiaomi.eu"* ]];then
+    is_eu_rom=true
+else
+    error "目标移植包没有payload.bin，请用MIUI官方包作为移植包" "payload.bin not found, please use HyperOS official OTA zip package."
+fi
 
 green "ROM初步检测通过" "ROM validation passed."
 
@@ -249,9 +255,19 @@ else
     green "底包 [new.dat.br] 提取完毕" "[new.dat.br] extracted."
 fi
 
-blue "正在提取移植包 [payload.bin]" "Extracting files from PROTROM [payload.bin]"
-unzip ${portrom} payload.bin -d build/portrom  > /dev/null 2>&1 ||error "解压移植包 [payload.bin] 时出错"  "Extracting [payload.bin] error"
-green "移植包 [payload.bin] 提取完毕" "[payload.bin] extracted."
+if [[ ${is_eu_rom} == true ]];then
+    blue "正在提取移植包 [super.img]" "Extracting files from PORTROM [super.img]"
+    unzip ${portrom} 'images/super.img.*' -d build/portrom >  /dev/null 2>&1 ||error "解压移植包 [super.img] 时出错"  "Extracting [super.img] error"
+    blue "合并super.img* 到super.img" "Merging super.img.* into super.img"
+    simg2img build/portrom/images/super.img.* build/portrom/images/super.img
+    rm -rf build/portrom/images/super.img.*
+    mv build/portrom/images/super.img build/portrom/super.img
+    green "移植包 [super.img] 提取完毕" "[super.img] extracted."
+else
+    blue "正在提取移植包 [payload.bin]" "Extracting files from PORTROM [payload.bin]"
+    unzip ${portrom} payload.bin -d build/portrom  > /dev/null 2>&1 ||error "解压移植包 [payload.bin] 时出错"  "Extracting [payload.bin] error"
+    green "移植包 [payload.bin] 提取完毕" "[payload.bin] extracted."
+fi
 
 if [ ${baserom_type} = 'payload' ];then
 
@@ -262,7 +278,7 @@ else
         for i in ${super_list}; do 
             ${tools_dir}/brotli -d build/baserom/$i.new.dat.br >/dev/null 2>&1
             sudo python3 ${tools_dir}/sdat2img.py build/baserom/$i.transfer.list build/baserom/$i.new.dat build/baserom/images/$i.img >/dev/null 2>&1
-            rm -rf $i.new.data.* $i.transfer.list $i.patch.*
+            rm -rf build/baserom/$i.new.dat* build/baserom/$i.transfer.list build/baserom/$i.patch.*
         done
 fi
 
@@ -274,14 +290,14 @@ for part in system system_dlkm system_ext product product_dlkm mi_ext ;do
             sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img >/dev/null 2>&1
             blue "分解底包 [${part}.img] 完成" "${part}.img [ext] extracted."
             mv ${part} build/baserom/images/
-            
+            rm -rf build/baserom/images/${part}.img      
         elif [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "erofs" ]]; then
             pack_type=EROFS
             blue "正在分解底包 ${part}.img [erofs]" "Extracing ${part}.img [erofs]"
             extract.erofs -x -i build/baserom/images/${part}.img  > /dev/null 2>&1 || error "分解 ${part}.img 失败" "Extracting ${part}.img failed."
             blue "分解底包 [${part}.img][erofs] 完成" "${part}.img [erofs] extracted."
             mv ${part} build/baserom/images/
-            
+            rm -rf build/baserom/images/${part}.img
         fi
         mv config/*${part}* build/baserom/config/
     fi
@@ -301,8 +317,13 @@ for part in ${super_list};do
     if [[ $part =~ ^(vendor|odm|vendor_dlkm|odm_dlkm)$ ]] && [[ -f "build/portrom/images/$part.img" ]]; then
         blue "从底包中提取 [${part}]分区 ..." "Extracting [${part}] from BASEROM"
     else
-        blue "payload.bin 提取 [${part}] 分区..." "Extracting [${part}] from payload.bin"
-        payload-dumper-go -p ${part} -o build/portrom/images/ build/portrom/payload.bin >/dev/null 2>&1 ||error "提取移植包 [${part}] 分区时出错" "Extracting partition [${part}] error."
+        if [[ ${is_eu_rom} == true ]];then
+            python3 bin/lpunpack.py -p ${part}_a build/portrom/super.img build/portrom/images 
+            mv build/portrom/images/${part}_a.img build/portrom/images/${part}.img
+        else
+            blue "payload.bin 提取 [${part}] 分区..." "Extracting [${part}] from payload.bin"
+            payload-dumper-go -p ${part} -o build/portrom/images/ build/portrom/payload.bin >/dev/null 2>&1 ||error "提取移植包 [${part}] 分区时出错" "Extracting partition [${part}] error."
+        fi
     fi
     if [ -f "${work_dir}/build/portrom/images/${part}.img" ];then
         blue "开始提取 ${part}.img" "Extracting ${part}.img"
@@ -313,9 +334,7 @@ for part in ${super_list};do
             mv ${part} build/portrom/images/
             mkdir -p build/portrom/images/${part}/lost+found
             mv config/*${part}* build/portrom/config/
-            
             rm -rf build/portrom/images/${part}.img
-
             green "提取 [${part}] [ext]镜像完毕" "Extracting [${part}].img [ext] done"
         elif [[ $(gettype -i build/portrom/images/${part}.img) == "erofs" ]];then
             pack_type=EROFS
@@ -326,7 +345,6 @@ for part in ${super_list};do
             mkdir -p build/portrom/images/${part}/lost+found
             mv config/*${part}* build/portrom/config/
             rm -rf build/portrom/images/${part}.img
-
             green "提取移植包[${part}] [erofs]镜像完毕" "Extracting ${part} [erofs] done."
         fi
         
@@ -556,49 +574,52 @@ if [ -f build/portrom/images/system/system/etc/init/hw/init.rc ];then
 	sed -i '/on boot/a\'$'\n''    chmod 0731 \/data\/system\/theme' build/portrom/images/system/system/etc/init/hw/init.rc
 fi
 
-yellow "删除多余的App" "Debloating..."
- rm -rf build/portrom/images/product/app/MSA
-rm -rf build/portrom/images/product/priv-app/MSA
-rm -rf build/portrom/images/product/app/mab
-rm -rf build/portrom/images/product/priv-app/mab
-rm -rf build/portrom/images/product/app/Updater
-rm -rf build/portrom/images/product/priv-app/Updater
-rm -rf build/portrom/images/product/app/MiuiUpdater
-rm -rf build/portrom/images/product/priv-app/MiuiUpdater
-rm -rf build/portrom/images/product/app/MIUIUpdater
-rm -rf build/portrom/images/product/priv-app/MIUIUpdater
-rm -rf build/portrom/images/product/app/MiService
-rm -rf build/portrom/images/product/app/MIService
-rm -rf build/portrom/images/product/app/SoterService
-rm -rf build/portrom/images/product/priv-app/MiService
-rm -rf build/portrom/images/product/priv-app/MIService
-rm -rf build/portrom/images/product/app/*Hybrid*
-rm -rf build/portrom/images/product/priv-app/*Hybrid*
-rm -rf build/portrom/images/product/etc/auto-install*
-rm -rf build/portrom/images/product/app/AnalyticsCore/*
-rm -rf build/portrom/images/product/priv-app/AnalyticsCore/*
-rm -rf build/portrom/images/product/data-app/*GalleryLockscreen* >/dev/null 2>&1
-mkdir -p app
-mv build/portrom/images/product/data-app/*Weather* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*DeskClock* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*Gallery* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*SoundRecorder* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*ScreenRecorder* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*Calculator* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*Calendar* app/ >/dev/null 2>&1
-rm -rf build/portrom/images/product/data-app/*
-cp -rf app/* build/portrom/images/product/data-app
-rm -rf app
+if [[ ${is_eu_rom} == true ]];then
+    blue "TODO"
+else
+    yellow "删除多余的App" "Debloating..."
+    rm -rf build/portrom/images/product/app/MSA
+    rm -rf build/portrom/images/product/priv-app/MSA
+    rm -rf build/portrom/images/product/app/mab
+    rm -rf build/portrom/images/product/priv-app/mab
+    rm -rf build/portrom/images/product/app/Updater
+    rm -rf build/portrom/images/product/priv-app/Updater
+    rm -rf build/portrom/images/product/app/MiuiUpdater
+    rm -rf build/portrom/images/product/priv-app/MiuiUpdater
+    rm -rf build/portrom/images/product/app/MIUIUpdater
+    rm -rf build/portrom/images/product/priv-app/MIUIUpdater
+    rm -rf build/portrom/images/product/app/MiService
+    rm -rf build/portrom/images/product/app/MIService
+    rm -rf build/portrom/images/product/app/SoterService
+    rm -rf build/portrom/images/product/priv-app/MiService
+    rm -rf build/portrom/images/product/priv-app/MIService
+    rm -rf build/portrom/images/product/app/*Hybrid*
+    rm -rf build/portrom/images/product/priv-app/*Hybrid*
+    rm -rf build/portrom/images/product/etc/auto-install*
+    rm -rf build/portrom/images/product/app/AnalyticsCore/*
+    rm -rf build/portrom/images/product/priv-app/AnalyticsCore/*
+    rm -rf build/portrom/images/product/data-app/*GalleryLockscreen* >/dev/null 2>&1
+    mkdir -p app
+    mv build/portrom/images/product/data-app/*Weather* app/ >/dev/null 2>&1
+    mv build/portrom/images/product/data-app/*DeskClock* app/ >/dev/null 2>&1
+    mv build/portrom/images/product/data-app/*Gallery* app/ >/dev/null 2>&1
+    mv build/portrom/images/product/data-app/*SoundRecorder* app/ >/dev/null 2>&1
+    mv build/portrom/images/product/data-app/*ScreenRecorder* app/ >/dev/null 2>&1
+    mv build/portrom/images/product/data-app/*Calculator* app/ >/dev/null 2>&1
+    mv build/portrom/images/product/data-app/*Calendar* app/ >/dev/null 2>&1
+    rm -rf build/portrom/images/product/data-app/*
+    cp -rf app/* build/portrom/images/product/data-app
+    rm -rf app
 
-rm -rf build/portrom/images/system/verity_key
-rm -rf build/portrom/images/vendor/verity_key
-rm -rf build/portrom/images/product/verity_key
-rm -rf build/portrom/images/system/recovery-from-boot.p
-rm -rf build/portrom/images/vendor/recovery-from-boot.p
-rm -rf build/portrom/images/product/recovery-from-boot.p
-rm -rf build/portrom/images/product/media/theme/miui_mod_icons/com.google.android.apps.nbu*
-rm -rf build/portrom/images/product/media/theme/miui_mod_icons/dynamic/com.google.android.apps.nbu*
-
+    rm -rf build/portrom/images/system/verity_key
+    rm -rf build/portrom/images/vendor/verity_key
+    rm -rf build/portrom/images/product/verity_key
+    rm -rf build/portrom/images/system/recovery-from-boot.p
+    rm -rf build/portrom/images/vendor/recovery-from-boot.p
+    rm -rf build/portrom/images/product/recovery-from-boot.p
+    rm -rf build/portrom/images/product/media/theme/miui_mod_icons/com.google.android.apps.nbu*
+    rm -rf build/portrom/images/product/media/theme/miui_mod_icons/dynamic/com.google.android.apps.nbu*
+fi
 # build.prop 修改
 blue "正在修改 build.prop" "Modifying build.prop"
 #
@@ -691,10 +712,16 @@ echo "vendor.perf.framepacing.enable=false" >> build/portrom/images/vendor/build
 if [[ -d "devices/common" ]];then
     commonCamera=$(find devices/common -type f -name "MiuiCamera.apk")
     targetCamera=$(find build/portrom/images/product -type d -name "MiuiCamera")
+    bootAnimationZIP=$(find devices/common -type f -name "bootanimation_${base_rom_density}.zip")
+    targetAnimationZIP=$(find build/portrom/images/product -type f -name "bootanimation.zip")
     if [[ $base_android_version == "13" ]] && [[ -f $commonCamera ]];then
-        yellow "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
+        yellow "替换相机为10S HyperOS A13 相机，MI10可用" "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
         rm -rf $targetCamera/*
         cp -rfv $commonCamera $targetCamera
+    fi
+    if [[ -f "$bootAnimationZIP" ]];then
+        yellow "替换开机第二屏动画" "Repacling bootanimation.zip"
+        cp -rfv $bootAnimationZIP $targetAnimationZIP
     fi
 fi
 
@@ -862,81 +889,89 @@ fi
 for pname in ${super_list};do
     rm -rf build/portrom/images/${pname}.img
 done
-
+os_type="hyperos"
+if [[ ${is_eu_rom} == true ]];then
+    os_type="xiaomi.eu"
+fi
 blue "正在压缩 super.img" "Comprising super.img"
 zstd --rm build/portrom/images/super.img -o build/portrom/images/super.zst
-mkdir -p out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/
+mkdir -p out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
 
 blue "正在生成刷机脚本" "Generating flashing scripts"
 if [ "${baserom_type}" = "br" ];then
 
-    mv -f build/portrom/images/super.zst out/hyperos_${device_code}_${port_rom_version}/
+    mv -f build/portrom/images/super.zst out/${os_type}_${device_code}_${port_rom_version}/
     #firmware
     if [ -d build/baserom/firmware-update ];then
-        mkdir -p out/hyperos_${device_code}_${port_rom_version}/firmware-update
-        cp -rf build/baserom/firmware-update/*  out/hyperos_${device_code}_${port_rom_version}/firmware-update
+        mkdir -p out/${os_type}_${device_code}_${port_rom_version}/firmware-update
+        cp -rf build/baserom/firmware-update/*  out/${os_type}_${device_code}_${port_rom_version}/firmware-update
     fi
         # disable vbmeta
-    for img in $(find out/hyperos_${device_code}_${port_rom_version}/firmware-update -type f -name "vbmeta*.img");do
-        python3 bin/patch-vbmeta.py ${img}
+    for img in $(find out/${os_type}_${device_code}_${port_rom_version}/firmware-update -type f -name "vbmeta*.img");do
+        python3 bin/patch-vbmeta.py ${img} > /dev/null 2>&1
     done
-    mv -f build/baserom/boot.img out/hyperos_${device_code}_${port_rom_version}/boot_official.img
-    cp -rf bin/flash/a-only/update-binary out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/
-    cp -rf bin/flash/zstd out/hyperos_${device_code}_${port_rom_version}/META-INF/
-    cp devices/$base_rom_code/boot_tv.img out/hyperos_${device_code}_${port_rom_version}/
-    sed -i "s/portversion/${port_rom_version}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/baseversion/${base_rom_version}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/andVersion/${port_android_version}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/device_code/${base_rom_code}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+    mv -f build/baserom/boot.img out/${os_type}_${device_code}_${port_rom_version}/boot_official.img
+    cp -rf bin/flash/a-only/update-binary out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
+    cp -rf bin/flash/zstd out/${os_type}_${device_code}_${port_rom_version}/META-INF/
+    custom_bootimg_file=$(find devices/$base_rom_code/ -type f -name "boot*.img")
+    if [[ -f "$custom_bootimg_file" ]];then
+        bootimg=$(basename "$custom_bootimg_file")
+        sed -i "s/boot_tv.img/$bootimg/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+        cp -rf $custom_bootimg_file out/${os_type}_${device_code}_${port_rom_version}/
+    fi
+    sed -i "s/portversion/${port_rom_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+    sed -i "s/baseversion/${base_rom_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+    sed -i "s/andVersion/${port_android_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+    sed -i "s/device_code/${base_rom_code}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
 
 else
-    mkdir -p out/hyperos_${device_code}_${port_rom_version}/images/
-    mv -f build/portrom/images/super.zst out/hyperos_${device_code}_${port_rom_version}/images/
-    cp -rf bin/flash/vab/update-binary out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/
-    cp -rf bin/flash/vab/platform-tools-windows out/hyperos_${device_code}_${port_rom_version}/META-INF/
-    cp -rf bin/flash/vab/flash_update.bat out/hyperos_${device_code}_${port_rom_version}/
-    cp -rf bin/flash/vab/flash_and_format.bat out/hyperos_${device_code}_${port_rom_version}/
+    mkdir -p out/${os_type}_${device_code}_${port_rom_version}/images/
+    mv -f build/portrom/images/super.zst out/${os_type}_${device_code}_${port_rom_version}/images/
+    cp -rf bin/flash/vab/update-binary out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
+    cp -rf bin/flash/vab/platform-tools-windows out/${os_type}_${device_code}_${port_rom_version}/META-INF/
+    cp -rf bin/flash/vab/flash_update.bat out/${os_type}_${device_code}_${port_rom_version}/
+    cp -rf bin/flash/vab/flash_and_format.bat out/${os_type}_${device_code}_${port_rom_version}/
    
-    cp -rf bin/flash/zstd out/hyperos_${device_code}_${port_rom_version}/META-INF/
-    for fwImg in $(ls out/hyperos_${device_code}_${port_rom_version}/images/ |cut -d "." -f 1 |grep -vE "super|cust|preloader");do
+    cp -rf bin/flash/zstd out/${os_type}_${device_code}_${port_rom_version}/META-INF/
+    for fwImg in $(ls out/${os_type}_${device_code}_${port_rom_version}/images/ |cut -d "." -f 1 |grep -vE "super|cust|preloader");do
         if [ "$(echo $fwImg |grep vbmeta)" != "" ];then
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_b images\/"$fwImg".img" out/hyperos_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_a images\/"$fwImg".img" out/hyperos_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_b images\/"$fwImg".img" out/hyperos_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_a images\/"$fwImg".img" out/hyperos_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_b\"" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_a\"" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_b\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_a\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
         else
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_b images\/"$fwImg".img" out/hyperos_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_a images\/"$fwImg".img" out/hyperos_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_b images\/"$fwImg".img" out/hyperos_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_a images\/"$fwImg".img" out/hyperos_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_b\"" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_a\"" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_b\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_a\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
         fi
     done
 
-    sed -i "s/portversion/${port_rom_version}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/baseversion/${base_rom_version}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/andVersion/${port_android_version}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/device_code/${base_rom_code}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+    sed -i "s/portversion/${port_rom_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+    sed -i "s/baseversion/${base_rom_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+    sed -i "s/andVersion/${port_android_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+    sed -i "s/device_code/${base_rom_code}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
 
-    busybox unix2dos out/hyperos_${device_code}_${port_rom_version}/flash_update.bat
-    busybox unix2dos out/hyperos_${device_code}_${port_rom_version}/flash_and_format.bat
+    busybox unix2dos out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+    busybox unix2dos out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
 
 fi
 
-find out/hyperos_${device_code}_${port_rom_version} |xargs touch
-pushd out/hyperos_${device_code}_${port_rom_version}/ >/dev/null || exit
-zip -r hyperos_${device_code}_${port_rom_version}.zip ./*
-mv hyperos_${device_code}_${port_rom_version}.zip ../
+find out/${os_type}_${device_code}_${port_rom_version} |xargs touch
+pushd out/${os_type}_${device_code}_${port_rom_version}/ >/dev/null || exit
+zip -r ${os_type}_${device_code}_${port_rom_version}.zip ./*
+mv ${os_type}_${device_code}_${port_rom_version}.zip ../
 popd >/dev/null || exit
 
-hash=$(md5sum out/hyperos_${device_code}_${port_rom_version}.zip |head -c 10)
-mv out/hyperos_${device_code}_${port_rom_version}.zip out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip
+hash=$(md5sum out/${os_type}_${device_code}_${port_rom_version}.zip |head -c 10)
+mv out/${os_type}_${device_code}_${port_rom_version}.zip out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_OFFICIAL_BOOT_${pack_type}.zip
 green "移植完毕" "Porting completed"    
 green "输出包路径：" "Output: "
-green "$(pwd)/out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip"
+green "$(pwd)/out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_OFFICIAL_BOOT_${pack_type}.zip"
 if [[ $pack_type == "EROFS" ]];then
-    yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot_tv.img is placed in the device folder."
+    yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot.img is placed in the device folder."
 fi

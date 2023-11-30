@@ -69,7 +69,6 @@ checkDevice
 
 # 检查是否存在打包错误
 isDamaged=$(unzip -l $ZIPFILE |grep "patcherror.txt")
-
 if [ "$isDamaged" != "" ];then
 	ui_print "该ROM存在打包错误，终止刷入"
 	exit 1
@@ -100,10 +99,11 @@ ui_print "- 开始刷机"
 ui_print " "
 
 #boot
-if [[ $ZIPFILE == *ROOT* ]] ; then
-    package_extract_file "boot_tv.img" "/dev/block/bootdevice/by-name/boot"
+if [[ $ZIPFILE == *OFFICIAL_BOOT* ]] ; then
+	package_extract_file "boot_official.img" "/dev/block/bootdevice/by-name/boot"
 else
-    package_extract_file "boot_official.img" "/dev/block/bootdevice/by-name/boot"
+	ui_print "刷入第三方内核boot_tv.img"
+    package_extract_file "boot_tv.img" "/dev/block/bootdevice/by-name/boot"
 fi
 
 
@@ -152,6 +152,12 @@ rm -rf /data/system/package_cache/*
 ui_print " "
 ui_print " "
 ui_print "- 刷机完毕"
+
+if [[ $ZIPFILE == *EROFS* ]];then
+	ui_print "检测到EROFS格式分区，请确保内核支持，否则将无限重启！"
+	ui_print "检测到EROFS格式分区，请确保内核支持，否则将无限重启！"
+	ui_print "检测到EROFS格式分区，请确保内核支持，否则将无限重启！"
+fi
 ui_print " "
 ui_print " "
 ui_print "- 如有红色挂载报错请直接忽略"
