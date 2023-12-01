@@ -12,14 +12,14 @@
 - HyperOS 一键自动移植打包
 
 ## 测试机型及版本
-- 测试机型小米10 底包 (V14.0.4.0.TJBCNXM)
-- 测试版本 小米13/Pro HyperOS1.0 正式版和Dev版 官方OTA包
+- 测试机型小米10/Pro/Ultra MIUI 14最新版
+- 测试版本 小米13/Pro、小米14/Pro、K70 Pro HyperOS1.0 正式版和开发版 官方OTA包
 
 ## 正常工作
 - 人脸
 - 挖孔
 - 指纹
-- 相机（需另外单独下载附件的相机到devices对应机型目录）
+- 相机
 - NFC
 - 自动亮度
 - 通话息屏
@@ -81,3 +81,13 @@
 ```
 - 上述代码中，底包路径和移植包路径可以替换为链接
 
+## 感谢
+> 本项目使用了以下开源项目的部分或全部内容，感谢这些项目的开发者（排名顺序不分先后）。
+
+- [「BypassSignCheck」by Weverses](https://github.com/Weverses/BypassSignCheck)
+- [「contextpatch」 by ColdWindScholar](https://github.com/ColdWindScholar/TIK)
+- [「fspatch」by affggh](https://github.com/affggh/fspatch)
+- [「gettype」by affggh](https://github.com/affggh/gettype)
+- [「lpunpack」by unix3dgforce](https://github.com/unix3dgforce/lpunpack)
+- [「miui_port」by ljc-fight](https://github.com/ljc-fight/miui_port)
+- etc

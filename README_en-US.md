@@ -12,24 +12,24 @@
 - HyperOS Porting Project for Android 13 devices "Onekey" script
 
 ## Tested devices and portroms
-- Xiaomi 10 (V14.0.4.0.TJBCNXM)
-- Port from Xiaomi Mi 14Pro Android 14 OS1.0.09.0.UNBCNXM - OS1.0.20.0.UNBCNXM OTA zip
+- Tested Devices: Xiaomi 10/Pro/Ultra(umi/cmi/cas) (with latest stock MIUI14 ROM)
+- Tested Ports: Xiaomi Mi 13/13Pro/14/14Pro K70Pro Stable and Dev stock flashable zip
 
 ## Working
 - Face unlock
 - Fringerprint
 - Camera(from leaked mi10s A13 based hyperos)
 - Automatic Brightness
+- NFC
 - etc
 
 
 ## BUG
-- NFC（not writable）
 
 - When unlocking device, the screen may flicker , Enabling "Disable HW overlays" in Developer options may help.
 
 ## Description
-- All the above testing is based on Xiaomi 10 official version (V14.0.4.0.TJBCNXM). for V-AB devices, tester needed. 
+- All the above testing is based on Xiaomi 10/10Pro/10 Ultra official MIUI 14 version. for V-AB devices, tester needed. 
 
 ## How to use
 - On WSL、ubuntu、deepin and other Linux
@@ -74,5 +74,13 @@
 ```
 - baserom and portrom can be a direct download link. you can get the ota download link  from third-party websites.
 
-## Camera
-- You need to download camera apk from [here](https://drive.google.com/file/d/1igjsEVG7ermqfDObSn3qXDe-QqyPVd61/view?usp=sharing) ,and place it to devices/device_code/overlay/product/priv-app/MiuiCamera/MiuiCamera.apk. 
+## Credits
+> In this project, some or all of the content is derived from the following open-source projects. Special thanks to the developers of these projects.
+
+- [「BypassSignCheck」by Weverses](https://github.com/Weverses/BypassSignCheck)
+- [「contextpatch」 by ColdWindScholar](https://github.com/ColdWindScholar/TIK)
+- [「fspatch」by affggh](https://github.com/affggh/fspatch)
+- [「gettype」by affggh](https://github.com/affggh/gettype)
+- [「lpunpack」by unix3dgforce](https://github.com/unix3dgforce/lpunpack)
+- [「miui_port」by ljc-fight](https://github.com/ljc-fight/miui_port)
+- etc
