@@ -199,6 +199,8 @@ fi
 
 if [ "$(echo $baserom |grep miui_)" != "" ];then
     device_code=$(basename $baserom |cut -d '_' -f 2)
+elif [ "$(echo $baserom |grep xiaomi.eu_)" != "" ];then
+    device_code=$(basename $baserom |cut -d '_' -f 3)
 else
     device_code="YourDevice"
 fi
@@ -210,7 +212,9 @@ if unzip -l ${baserom} | grep -q "payload.bin"; then
 elif unzip -l ${baserom} | grep -q "br$";then
     baserom_type="br"
     super_list="vendor mi_ext odm system product system_ext"
-    
+elif unzip -l ${baserom} | grep -q "images/super.img*"; then
+    is_base_rom_eu=true
+    super_list="vendor mi_ext odm system product system_ext"
 else
     error "底包中未发现payload.bin以及br文件，请使用MIUI官方包后重试" "payload.bin/new.br not found, please use HyperOS official OTA zip package."
     exit
@@ -245,14 +249,25 @@ mkdir -p build/portrom/images/
 mkdir -p build/portrom/config/
 
 # 提取分区
-if [ ${baserom_type} = 'payload' ];then
+if [[ ${baserom_type} == 'payload' ]];then
     blue "正在提取底包 [payload.bin]" "Extracting files from BASEROM [payload.bin]"
     unzip ${baserom} payload.bin -d build/baserom > /dev/null 2>&1 ||error "解压底包 [payload.bin] 时出错" "Extracting [payload.bin] error"
     green "底包 [payload.bin] 提取完毕" "[payload.bin] extracted."
-else
+elif [[ ${baserom_type} == 'br' ]];then
     blue "正在提取底包 [new.dat.br]" "Extracting files from BASEROM [*.new.dat.br]"
     unzip ${baserom} -d build/baserom  > /dev/null 2>&1 || error "解压底包 [new.dat.br]时出错" "Extracting [new.dat.br] error"
     green "底包 [new.dat.br] 提取完毕" "[new.dat.br] extracted."
+elif [[ ${is_base_rom_eu} == true ]];then
+    blue "正在提取底包 [super.img]" "Extracting files from BASETROM [super.img]"
+    unzip ${baserom} 'images/*' -d build/baserom >  /dev/null 2>&1 ||error "解压移植包 [super.img] 时出错"  "Extracting [super.img] error"
+    blue "合并super.img* 到super.img" "Merging super.img.* into super.img"
+    simg2img build/baserom/images/super.img.* build/baserom/images/super.img
+    rm -rf build/baserom/images/super.img.*
+    mv build/baserom/images/super.img build/baserom/super.img
+    green "底包 [super.img] 提取完毕" "[super.img] extracted."
+    mv build/baserom/images/boot.img build/baserom/
+    mkdir -p build/baserom/firmware-update
+    mv build/baserom/images/* build/baserom/firmware-update
 fi
 
 if [[ ${is_eu_rom} == true ]];then
@@ -269,12 +284,19 @@ else
     green "移植包 [payload.bin] 提取完毕" "[payload.bin] extracted."
 fi
 
-if [ ${baserom_type} = 'payload' ];then
+if [[ ${baserom_type} == 'payload' ]];then
 
-    blue "开始分解底包 [payload.bin]" "Unpacking [payload.bin]"
+    blue "开始分解底包 [payload.bin]" "Unpacking BASEROM [payload.bin]"
     payload-dumper-go -o build/baserom/images/ build/baserom/payload.bin >/dev/null 2>&1 ||error "分解底包 [payload.bin] 时出错" "Unpacking [payload.bin] failed"
-else
-    blue "开始分解底包 [new.dat.br]" "Unpacking [new.dat.br]"
+
+elif [[ ${is_base_rom_eu} == true ]];then
+     blue "开始分解底包 [super.img]" "Unpacking BASEROM [super.img]"
+        for i in ${super_list}; do 
+            python3 bin/lpunpack.py -p ${i} build/baserom/super.img build/baserom/images
+done
+
+elif [[ ${baserom_type} == 'br' ]];then
+    blue "开始分解底包 [new.dat.br]" "Unpacking BASEROM[new.dat.br]"
         for i in ${super_list}; do 
             ${tools_dir}/brotli -d build/baserom/$i.new.dat.br >/dev/null 2>&1
             sudo python3 ${tools_dir}/sdat2img.py build/baserom/$i.transfer.list build/baserom/$i.new.dat build/baserom/images/$i.img >/dev/null 2>&1
@@ -286,16 +308,16 @@ for part in system system_dlkm system_ext product product_dlkm mi_ext ;do
     if [[ -f build/baserom/images/${part}.img ]];then 
         if [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "ext" ]];then
             pack_type=EXT
-            blue "正在分解底包 ${part}.img [ext]" "Extracing ${part}.img [ext]"
+            blue "正在分解底包 ${part}.img [ext]" "Extracing ${part}.img [ext] from BASEROM"
             sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img >/dev/null 2>&1
-            blue "分解底包 [${part}.img] 完成" "${part}.img [ext] extracted."
+            blue "分解底包 [${part}.img] 完成" "BASEROM ${part}.img [ext] extracted."
             mv ${part} build/baserom/images/
             rm -rf build/baserom/images/${part}.img      
         elif [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "erofs" ]]; then
             pack_type=EROFS
-            blue "正在分解底包 ${part}.img [erofs]" "Extracing ${part}.img [erofs]"
+            blue "正在分解底包 ${part}.img [erofs]" "Extracing ${part}.img [erofs] from BASEROM"
             extract.erofs -x -i build/baserom/images/${part}.img  > /dev/null 2>&1 || error "分解 ${part}.img 失败" "Extracting ${part}.img failed."
-            blue "分解底包 [${part}.img][erofs] 完成" "${part}.img [erofs] extracted."
+            blue "分解底包 [${part}.img][erofs] 完成" "BASEROM ${part}.img [erofs] extracted."
             mv ${part} build/baserom/images/
             rm -rf build/baserom/images/${part}.img
         fi
@@ -312,16 +334,18 @@ done
 
 # 分解镜像
 green "开始提取逻辑分区镜像" "Starting extract partition from img"
-
+echo $super_list
 for part in ${super_list};do
     if [[ $part =~ ^(vendor|odm|vendor_dlkm|odm_dlkm)$ ]] && [[ -f "build/portrom/images/$part.img" ]]; then
         blue "从底包中提取 [${part}]分区 ..." "Extracting [${part}] from BASEROM"
     else
         if [[ ${is_eu_rom} == true ]];then
+            blue "PORTROM super.img 提取 [${part}] 分区..." "Extracting [${part}] from PORTROM super.img"
+            blue "lpunpack.py PORTROM super.img ${patrt}_a"
             python3 bin/lpunpack.py -p ${part}_a build/portrom/super.img build/portrom/images 
             mv build/portrom/images/${part}_a.img build/portrom/images/${part}.img
         else
-            blue "payload.bin 提取 [${part}] 分区..." "Extracting [${part}] from payload.bin"
+            blue "payload.bin 提取 [${part}] 分区..." "Extracting [${part}] from PORTROM payload.bin"
             payload-dumper-go -p ${part} -o build/portrom/images/ build/portrom/payload.bin >/dev/null 2>&1 ||error "提取移植包 [${part}] 分区时出错" "Extracting partition [${part}] error."
         fi
     fi
@@ -334,7 +358,7 @@ for part in ${super_list};do
             mv ${part} build/portrom/images/
             mkdir -p build/portrom/images/${part}/lost+found
             mv config/*${part}* build/portrom/config/
-            rm -rf build/portrom/images/${part}.img
+            #rm -rf build/portrom/images/${part}.img
             green "提取 [${part}] [ext]镜像完毕" "Extracting [${part}].img [ext] done"
         elif [[ $(gettype -i build/portrom/images/${part}.img) == "erofs" ]];then
             pack_type=EROFS
@@ -344,7 +368,7 @@ for part in ${super_list};do
             mv ${part} build/portrom/images/
             mkdir -p build/portrom/images/${part}/lost+found
             mv config/*${part}* build/portrom/config/
-            rm -rf build/portrom/images/${part}.img
+            #rm -rf build/portrom/images/${part}.img
             green "提取移植包[${part}] [erofs]镜像完毕" "Extracting ${part} [erofs] done."
         fi
         
@@ -575,7 +599,8 @@ if [ -f build/portrom/images/system/system/etc/init/hw/init.rc ];then
 fi
 
 if [[ ${is_eu_rom} == true ]];then
-    blue "TODO"
+    rm -rf build/portrom/images/product/data-app
+    rm -rf build/portrom/images/product/app/Updater
 else
     yellow "删除多余的App" "Debloating..."
     rm -rf build/portrom/images/product/app/MSA
@@ -846,7 +871,7 @@ rm fstype.txt
 
 # 打包 super.img
 
-if [ "${baserom_type}" = "br" ];then
+if [[ "${baserom_type}" == "br" ]] || [[ "${is_base_rom_eu}" == true ]];then
     blue "打包A-only super.img" "Packing super.img for A-only device"
     lpargs="-F --output build/portrom/images/super.img --metadata-size 65536 --super-name super --metadata-slots 2 --block-size 4096 --device super:$superSize --group=qti_dynamic_partitions:$superSize"
     for pname in odm mi_ext system system_ext product vendor;do
@@ -898,7 +923,7 @@ zstd --rm build/portrom/images/super.img -o build/portrom/images/super.zst
 mkdir -p out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
 
 blue "正在生成刷机脚本" "Generating flashing scripts"
-if [ "${baserom_type}" = "br" ];then
+if [[ "${baserom_type}" == "br" ]] || [[ "${is_base_rom_eu}" == true ]];then
 
     mv -f build/portrom/images/super.zst out/${os_type}_${device_code}_${port_rom_version}/
     #firmware
