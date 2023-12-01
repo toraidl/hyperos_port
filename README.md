@@ -1,5 +1,6 @@
 <div align="center">
-
+## WIP
+基于xiaomi.eu的包还无法开机。
 
 # HyperOS 移植项目
 ### 基于 https://github.com/ljc-fight/miui_port
@@ -13,7 +14,7 @@
 
 ## 测试机型及版本
 - 测试机型小米10 底包 (V14.0.4.0.TJBCNXM)
-- 测试版本 小米13/Pro HyperOS1.0 正式版和Dev版 官方OTA包
+- 测试版本 小米14/Pro HyperOS1.0 xiaomi.eu官改包 
 
 ## 正常工作
 - 人脸
