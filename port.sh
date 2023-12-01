@@ -6,9 +6,9 @@
 
 # Based on Android 13
 
-# Test Base ROM: A-only Mi 10 (V14.0.4)
+# Test Base ROM: A-only Mi 10/PRO/Ultra (MIUI 14 Latset stockrom)
 
-# Test Port ROM: Mi14 Pro OS1.0.9-1.0.21
+# Test Port ROM: Mi 14/Pro OS1.0.9-1.0.25 Mi 13/PRO OS1.0 23.11.09-23.11.10 DEV
 
 
 build_user="Bruce Teng"
@@ -111,7 +111,7 @@ check() {
     done
 }
 
-check unzip aria2c 7z zip java zipalign python3 zstd
+check unzip aria2c 7z zip java zipalign python3 zstd bc
 
 # 向 apk 或 jar 文件中替换 smali 代码，不支持资源补丁
 # $1: 目标 apk/jar 文件
@@ -167,6 +167,7 @@ patch_smali() {
 port_partition=$(grep "partition_to_port" bin/port_config |cut -d '=' -f 2)
 #super_list=$(grep "super_list" bin/port_config |cut -d '=' -f 2)
 repackext4=$(grep "repack_with_ext4" bin/port_config |cut -d '=' -f 2)
+brightness_fix_method=$(grep "brightness_fix_method" bin/port_config |cut -d '=' -f 2)
 
 # 检查为本地包还是链接
 if [ ! -f "${baserom}" ] && [ "$(echo $baserom |grep http)" != "" ];then
@@ -220,6 +221,12 @@ blue "开始检测ROM移植包" "Validating PORTROM.."
 unzip -l ${portrom} |grep "payload.bin" 1>/dev/null 2>&1 || error "目标移植包没有payload.bin，请用MIUI官方包作为移植包" "payload.bin not found, please use HyperOS official OTA zip package."
 
 green "ROM初步检测通过" "ROM validation passed."
+
+if [[ "$portrom" =~ SHENNONG|HOUJI ]]; then
+    is_shennong_houji_port=true
+else
+    is_shennong_houji_port=false
+fi
 
 blue "正在清理文件" "Cleaning up.."
 for i in ${port_partition};do
@@ -369,7 +376,12 @@ base_rom_code=$(< build/portrom/images/vendor/build.prop grep "ro.product.vendor
 port_rom_code=$(< build/portrom/images/product/etc/build.prop grep "ro.product.product.name" |awk 'NR==1' |cut -d '=' -f 2)
 green "机型代号: 底包为 [${base_rom_code}], 移植包为 [${port_rom_code}]" "Device Code: BASEROM: [${base_rom_code}], PORTROM: [${port_rom_code}]"
 
+if grep -q "ro.build.ab_update=true" build/portrom/images/product/etc/build.prop;  then
+    is_ab_device=true
+else
+    is_ab_device=false
 
+fi
 
 baseAospFrameworkResOverlay=$(find build/baserom/images/product -type f -name "AospFrameworkResOverlay.apk")
 portAospFrameworkResOverlay=$(find build/portrom/images/product -type f -name "AospFrameworkResOverlay.apk")
@@ -377,14 +389,6 @@ if [ -f "${baseAospFrameworkResOverlay}" ] && [ -f "${portAospFrameworkResOverla
     blue "正在替换 [AospFrameworkResOverlay.apk]" "Replacing [AospFrameworkResOverlay.apk]" 
     cp -rf ${baseAospFrameworkResOverlay} ${portAospFrameworkResOverlay}
 fi
-
-
-#baseMiuiFrameworkResOverlay=$(find build/baserom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
-#portMiuiFrameworkResOverlay=$(find build/portrom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
-#if [ -f ${baseMiuiFrameworkResOverlay} ] && [ -f ${portMiuiFrameworkResOverlay} ];then
-#    blue "正在替换 [MiuiFrameworkResOverlay.apk]"
-#    cp -rf ${baseMiuiFrameworkResOverlay} ${portMiuiFrameworkResOverlay}
-#fi
 
 #baseAospWifiResOverlay=$(find build/baserom/images/product -type f -name "AospWifiResOverlay.apk")
 ##portAospWifiResOverlay=$(find build/portrom/images/product -type f -name "AospWifiResOverlay.apk")
@@ -447,11 +451,22 @@ fi
 
 
 # displayconfig id
-for display_id_file in $(find build/baserom/images/product/etc/displayconfig/ -type f -name "display_id*.xml");do
-    display_id=$(basename $display_id_file)
-    blue "复制display_id $display_id 到移植包" "Copying display_id $display_id to PortROM"
-    cp -rf $(ls -1 build/portrom/images/product/etc/displayconfig/display_id_*.xml | head -n 1) build/portrom/images/product/etc/displayconfig/$display_id 
-done
+if [[ "$brightness_fix_method" == "port" ]];then
+    for display_id_file in $(find build/baserom/images/product/etc/displayconfig/ -type f -name "display_id*.xml");do
+        display_id=$(basename "$display_id_file")
+        blue "复制display_id $display_id 到移植包" "Copying display_id $display_id to PortROM"
+        cp -rf "$(ls -1 build/portrom/images/product/etc/displayconfig/display_id_*.xml | head -n 1)" build/portrom/images/product/etc/displayconfig/"$display_id"
+    done
+elif [[ "$brightness_fix_method" == "stock" ]];then
+        rm -rf build/portrom/images/product/etc/displayconfig/display_id*.xml
+        cp -rf build/baserom/images/product/etc/displayconfig/display_id*.xml build/portrom/images/product/etc/displayconfig/
+        baseMiuiFrameworkResOverlay=$(find build/baserom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
+        portMiuiFrameworkResOverlay=$(find build/portrom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
+        if [ -f ${baseMiuiFrameworkResOverlay} ] && [ -f ${portMiuiFrameworkResOverlay} ];then
+            blue "正在替换 [MiuiFrameworkResOverlay.apk]"
+            cp -rf ${baseMiuiFrameworkResOverlay} ${portMiuiFrameworkResOverlay}
+        fi
+fi
 
 # device_features
 blue "Copying device_features"   
@@ -541,12 +556,17 @@ else
     blue "File $targetVintf not found."
 fi
 blue "左侧挖孔灵动岛修复" "StrongToast UI fix"
-patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v10\, 0x0" "iget-object v10\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v10}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v10\\n\\tint-to-float v10,v10"
+if [[ "$is_shennong_houji_port" == true ]];then
+    patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v7\, 0x0" "iget-object v7\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v7}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v7\\n\\tint-to-float v7,v7"
+else
+    patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v10\, 0x0" "iget-object v10\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v10}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v10\\n\\tint-to-float v10,v10"
+fi
 
-#blue "不优雅的方案解决开机软重启问题"
-#fixme 
-#patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
-
+if [[ "$brightness_fix_method" == "stock" ]];then
+    blue "不优雅的方案解决开机软重启问题" "fix minimumLux:F null issue for stock display_id"
+    #fixme 
+    patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
+fi
 blue "去除安卓14应用签名限制" "Disalbe Android 14 Apk Signature Verfier"
 patch_smali "framework.jar" "ApkSignatureVerifier.smali" "const\/4 v0, 0x2" "const\/4 v0, 0x1" 
 # 修复软重启
@@ -691,10 +711,16 @@ echo "vendor.perf.framepacing.enable=false" >> build/portrom/images/vendor/build
 if [[ -d "devices/common" ]];then
     commonCamera=$(find devices/common -type f -name "MiuiCamera.apk")
     targetCamera=$(find build/portrom/images/product -type d -name "MiuiCamera")
+    bootAnimationZIP=$(find devices/common -type f -name "bootanimation_${base_rom_density}.zip")
+    targetAnimationZIP=$(find build/portrom/images/product -type f -name "bootanimation.zip")
     if [[ $base_android_version == "13" ]] && [[ -f $commonCamera ]];then
-        yellow "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
+        yellow "替换相机为10S HyperOS A13 相机，MI10可用" "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
         rm -rf $targetCamera/*
         cp -rfv $commonCamera $targetCamera
+    fi
+    if [[ -f "$bootAnimationZIP" ]];then
+        yellow "替换开机第二屏动画" "Repacling bootanimation.zip"
+        cp -rfv $bootAnimationZIP $targetAnimationZIP
     fi
 fi
 
@@ -819,7 +845,7 @@ rm fstype.txt
 
 # 打包 super.img
 
-if [ "${baserom_type}" = "br" ];then
+if [[ "$is_ab_device" == false ]];then
     blue "打包A-only super.img" "Packing super.img for A-only device"
     lpargs="-F --output build/portrom/images/super.img --metadata-size 65536 --super-name super --metadata-slots 2 --block-size 4096 --device super:$superSize --group=qti_dynamic_partitions:$superSize"
     for pname in odm mi_ext system system_ext product vendor;do
@@ -867,7 +893,7 @@ blue "正在压缩 super.img" "Comprising super.img"
 zstd --rm build/portrom/images/super.img -o build/portrom/images/super.zst
 mkdir -p out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/
 
-blue "正在生成刷机脚本" "Generating flashing scripts"
+blue "正在生成刷机脚本" "Generating flashing script"
 if [ "${baserom_type}" = "br" ];then
 
     mv -f build/portrom/images/super.zst out/hyperos_${device_code}_${port_rom_version}/
@@ -883,7 +909,12 @@ if [ "${baserom_type}" = "br" ];then
     mv -f build/baserom/boot.img out/hyperos_${device_code}_${port_rom_version}/boot_official.img
     cp -rf bin/flash/a-only/update-binary out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/
     cp -rf bin/flash/zstd out/hyperos_${device_code}_${port_rom_version}/META-INF/
-    cp devices/$base_rom_code/boot_tv.img out/hyperos_${device_code}_${port_rom_version}/
+    custom_bootimg_file=$(find devices/$base_rom_code/ -type f -name "boot*.img")
+    if [[ -f "$custom_bootimg_file" ]];then
+        bootimg=$(basename "$custom_bootimg_file")
+        sed -i "s/boot_tv.img/$bootimg/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+        cp -rf "$custom_bootimg_file" out/hyperos_${device_code}_${port_rom_version}/
+    fi
     sed -i "s/portversion/${port_rom_version}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
     sed -i "s/baseversion/${base_rom_version}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
     sed -i "s/andVersion/${port_android_version}/g" out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
@@ -933,10 +964,10 @@ mv hyperos_${device_code}_${port_rom_version}.zip ../
 popd >/dev/null || exit
 
 hash=$(md5sum out/hyperos_${device_code}_${port_rom_version}.zip |head -c 10)
-mv out/hyperos_${device_code}_${port_rom_version}.zip out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip
+mv out/hyperos_${device_code}_${port_rom_version}.zip out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_type}.zip
 green "移植完毕" "Porting completed"    
 green "输出包路径：" "Output: "
-green "$(pwd)/out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip"
+green "$(pwd)/out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_type}.zip"
 if [[ $pack_type == "EROFS" ]];then
     yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot_tv.img is placed in the device folder."
 fi
