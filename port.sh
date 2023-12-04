@@ -115,7 +115,7 @@ check unzip aria2c 7z zip java zipalign python3 zstd bc
 
 # 向 apk 或 jar 文件中替换 smali 代码，不支持资源补丁
 # $1: 目标 apk/jar 文件
-# $2: 目标 smali 文件
+# $2: 目标 smali 文件(支持带相对路径的smali文件)
 # $3: 被替换值
 # $4: 替换值
 patch_smali() {
@@ -133,8 +133,11 @@ patch_smali() {
             smalifname=$(echo $smalifname | cut -d "/" -f 3)
             java -jar bin/apktool/baksmali.jar d --api ${port_android_sdk} ${dexfile} -o tmp/$foldername/$smalifname 2>&1 || error " Baksmaling 失败" "Baksmaling failed"
         done
-
-        targetsmali=$(find tmp/$foldername -type f -name $2)
+        if [[ $2 == *"/"* ]];then
+            targetsmali=$(find tmp/$foldername/*/$(dirname $2) -type f -name $(basename $2))
+        else
+            targetsmali=$(find tmp/$foldername -type f -name $2)
+        fi
         if [ -f $targetsmali ];then
             smalidir=$(echo $targetsmali |cut -d "/" -f 3)
             yellow "I: 开始patch目标 ${smalidir}" "Target ${smalidir} Found"
@@ -555,14 +558,32 @@ if [ -f "$targetVintf" ]; then
 else
     blue "File $targetVintf not found."
 fi
+
+if [[ $(echo "$portrom") == *"DEV"* ]];then
+    date_format_11_27_dev=$(echo "23.11.27" | awk -F'.' '{printf "20%02d-%02d-%02d", $1, $2, $3}')
+    date_current_rom=$(echo "$portrom" | awk -F'[.]' '{print $3"."$4"."$5}' | awk -F'.' '{printf "20%02d-%02d-%02d", $1, $2, $3}')
+    timestamp_11_27_dev=$(date -jf "%Y-%m-%d" "$date_format_11_27_dev" +%s|| date -d "$date_format_11_27_dev" +%s)
+    timestamp_current_rom=$(date -jf "%Y-%m-%d" "$date_current_rom" +%s|| date -d "$date_current_rom" +%s)
+fi
+
 blue "左侧挖孔灵动岛修复" "StrongToast UI fix"
 if [[ "$is_shennong_houji_port" == true ]];then
     patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v7\, 0x0" "iget-object v7\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v7}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v7\\n\\tint-to-float v7,v7"
-elif [[ $portrom == *23.11.27* ]];then
+elif [[ $timestamp_current_rom -gt $timestamp_11_27_dev ]];then
     patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v9\, 0x0" "iget-object v9\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v9}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v9\\n\\tint-to-float v9,v9"
 else
     patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v10\, 0x0" "iget-object v10\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v10}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v10\\n\\tint-to-float v10,v10"
 fi
+
+if [[ "$is_shennong_houji_port" == true ]];then
+    blue "开启HyperMind功能，移植包为14系列AI开发版(23.11.30 Dev) " "Enable hypermind feature( AI dev verison needed)"
+
+     patch_smali "MiLinkCirculateMIUI15.apk" "com/milink/hmindlib/j.smali" ".method public final B()Z" ".method public final B()Z \n\n\t.registers 1 \n\n\tconst\/4 v0,0x1\n\n\treturn v0\n.end method\n\n.method public final B_bak()Z"
+      
+fi
+
+blue "解除状态栏通知个数限制(默认最大6个)" "Set SystemUI maxStaticIcons to 6 by default."
+patch_smali "MiuiSystemUI.apk" "NotificationIconAreaController.smali" "iput p10, p0, Lcom\/android\/systemui\/statusbar\/phone\/NotificationIconContainer;->mMaxStaticIcons:I" "const\/4 p10, 0x6\n\n\tiput p10, p0, Lcom\/android\/systemui\/statusbar\/phone\/NotificationIconContainer;->mMaxStaticIcons:I"
 
 if [[ "$brightness_fix_method" == "stock" ]];then
     blue "不优雅的方案解决开机软重启问题" "fix minimumLux:F null issue for stock display_id"
@@ -716,7 +737,7 @@ if [[ -d "devices/common" ]];then
     bootAnimationZIP=$(find devices/common -type f -name "bootanimation_${base_rom_density}.zip")
     targetAnimationZIP=$(find build/portrom/images/product -type f -name "bootanimation.zip")
     if [[ $base_android_version == "13" ]] && [[ -f $commonCamera ]];then
-        yellow "替换相机为10S HyperOS A13 相机，MI10可用" "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
+        yellow "替换相机为10S HyperOS A13 相机，MI10可用, thanks to 酷安 @PedroZ" "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
         rm -rf $targetCamera/*
         cp -rfv $commonCamera $targetCamera
     fi
@@ -896,7 +917,7 @@ zstd --rm build/portrom/images/super.img -o build/portrom/images/super.zst
 mkdir -p out/hyperos_${device_code}_${port_rom_version}/META-INF/com/google/android/
 
 blue "正在生成刷机脚本" "Generating flashing script"
-if [ "${baserom_type}" = "br" ];then
+if [[ "$is_ab_device" == false ]];then
 
     mv -f build/portrom/images/super.zst out/hyperos_${device_code}_${port_rom_version}/
     #firmware
@@ -964,12 +985,12 @@ pushd out/hyperos_${device_code}_${port_rom_version}/ >/dev/null || exit
 zip -r hyperos_${device_code}_${port_rom_version}.zip ./*
 mv hyperos_${device_code}_${port_rom_version}.zip ../
 popd >/dev/null || exit
-
+pack_timestamp=$(date +"%Y%m%d%H%M%S")
 hash=$(md5sum out/hyperos_${device_code}_${port_rom_version}.zip |head -c 10)
-mv out/hyperos_${device_code}_${port_rom_version}.zip out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_type}.zip
+mv out/hyperos_${device_code}_${port_rom_version}.zip out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_timestamp}_${pack_type}.zip
 green "移植完毕" "Porting completed"    
 green "输出包路径：" "Output: "
-green "$(pwd)/out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_type}.zip"
+green "$(pwd)/out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_timestamp}_${pack_type}.zip"
 if [[ $pack_type == "EROFS" ]];then
     yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot_tv.img is placed in the device folder."
 fi
