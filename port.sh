@@ -166,6 +166,14 @@ patch_smali() {
     fi
 
 }
+#check if a prperty is avaialble
+is_property_exists () {
+    if [ $(grep -c "$1" "$2") -ne 0 ]; then
+        return 0
+    else
+        return 1
+    fi
+}
 
 # 移植的分区，可在 bin/port_config 中更改
 port_partition=$(grep "partition_to_port" bin/port_config |cut -d '=' -f 2)
@@ -536,12 +544,12 @@ for prop_file in $(find build/portrom/images/vendor/ -name "*.prop"); do
         break  
     fi
 done
-baseVndk=$(find build/baserom/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
-portVndk=$(find build/portrom/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
+base_vndk=$(find build/baserom/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
+port_vndk=$(find build/portrom/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
 
-if [ ! -f "${portVndk}" ]; then
+if [ ! -f "${port_vndk}" ]; then
     yellow "apex不存在，从原包复制" "target apex is missing, copying from baserom"
-    cp -rf "${baseVndk}" "build/portrom/images/system_ext/apex/"
+    cp -rf "${base_vndk}" "build/portrom/images/system_ext/apex/"
 fi
 
 #解决开机报错问题
@@ -726,10 +734,36 @@ echo "ro.miui.cust_erofs=0" >> build/portrom/images/product/etc/build.prop
 
 #Fix： mi10 boot stuck at the first screen
 sed -i "s/persist\.sys\.millet\.cgroup1/#persist\.sys\.millet\.cgroup1/" build/portrom/images/vendor/build.prop
-echo "ro.millet.netlink=29" >> build/portrom/images/vendor/build.prop
 
 #Fix：Fingerprint issue encountered on OS V1.0.18
 echo "vendor.perf.framepacing.enable=false" >> build/portrom/images/vendor/build.prop
+
+
+# Millet fix
+blue "修复Millet" "Fix Millet"
+# Function to update netlink in build.prop
+update_netlink() {
+  local netlink_version=$1
+  local prop_file=$2
+
+  if grep -q "ro.millet.netlink" "$prop_file"; then
+    blue "找到ro.millet.netlink修改值为$netlink_version" "millet_netlink propery found, changing value to $netlink_version"
+    sed -i "s/ro.millet.netlink=.*/ro.millet.netlink=$netlink_version/" "$prop_file"
+  else
+    blue "PORTROM未找到ro.millet.netlink值,添加为$netlink_version" "millet_netlink not found in portrom, adding new value $netlink_version"
+    echo -e "ro.millet.netlink=$netlink_version\n" >> "$prop_file"
+  fi
+}
+
+millet_netlink_version=$(grep "ro.millet.netlink" build/baserom/images/product/etc/build.prop | cut -d "=" -f 2)
+
+if [[ -n "$millet_netlink_version" ]]; then
+  update_netlink "$millet_netlink_version" "build/portrom/images/product/etc/build.prop"
+else
+  blue "原包未发现ro.millet.netlink值，请手动赋值修改(默认为29)" "ro.millet.netlink property value not found, change it manually(29 by default)."
+  millet_netlink_version=29
+  update_netlink "$millet_netlink_version" "build/portrom/images/product/etc/build.prop"
+fi
 
 #自定义替换
 if [[ -d "devices/common" ]];then
@@ -986,7 +1020,7 @@ pushd out/hyperos_${device_code}_${port_rom_version}/ >/dev/null || exit
 zip -r hyperos_${device_code}_${port_rom_version}.zip ./*
 mv hyperos_${device_code}_${port_rom_version}.zip ../
 popd >/dev/null || exit
-pack_timestamp=$(date +"%Y%m%d%H%M%S")
+pack_timestamp=$(date +"%m%d%H%M")
 hash=$(md5sum out/hyperos_${device_code}_${port_rom_version}.zip |head -c 10)
 mv out/hyperos_${device_code}_${port_rom_version}.zip out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_timestamp}_${pack_type}.zip
 green "移植完毕" "Porting completed"    
