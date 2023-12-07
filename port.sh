@@ -185,7 +185,7 @@ brightness_fix_method=$(grep "brightness_fix_method" bin/port_config |cut -d '='
 if [ ! -f "${baserom}" ] && [ "$(echo $baserom |grep http)" != "" ];then
     blue "底包为一个链接，正在尝试下载" "Download link detected, start downloding.."
     aria2c --max-download-limit=1024M --file-allocation=none -s10 -x10 -j10 ${baserom}
-    baserom=$(basename ${baserom})
+    baserom=$(basename ${baserom} | sed 's/\?t.*//')
     if [ ! -f "${baserom}" ];then
         error "下载错误" "Download error!"
     fi
@@ -199,7 +199,7 @@ fi
 if [ ! -f "${portrom}" ] && [ "$(echo ${portrom} |grep http)" != "" ];then
     blue "移植包为一个链接，正在尝试下载"  "Download link detected, start downloding.."
     aria2c --max-download-limit=1024M --file-allocation=none -s10 -x10 -j10 ${portrom}
-    portrom=$(basename ${portrom})
+    portrom=$(basename ${portrom} | sed 's/\?t.*//')
     if [ ! -f "${portrom}" ];then
         error "下载错误" "Download error!"
     fi
