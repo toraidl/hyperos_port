@@ -14,5 +14,8 @@ repack_with_ext4=true
 remove_data_encryption=false
 
 
-#using stockrom display_id content or portrom's: stock or port
+# using stockrom display_id content or portrom's: stock or port
 brightness_fix_method=stock
+
+# whether to disable vintf matrix matches in framework level. enabled by defaut.
+compatible_matrix_matches_check=true

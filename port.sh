@@ -181,6 +181,8 @@ port_partition=$(grep "partition_to_port" bin/port_config |cut -d '=' -f 2)
 repackext4=$(grep "repack_with_ext4" bin/port_config |cut -d '=' -f 2)
 brightness_fix_method=$(grep "brightness_fix_method" bin/port_config |cut -d '=' -f 2)
 
+compatible_matrix_matches_enabled=$(grep "compatible_matrix_matches_check" bin/port_config | cut -d '=' -f 2)
+
 # 检查为本地包还是链接
 if [ ! -f "${baserom}" ] && [ "$(echo $baserom |grep http)" != "" ];then
     blue "底包为一个链接，正在尝试下载" "Download link detected, start downloding.."
@@ -589,6 +591,10 @@ if [[ "$is_shennong_houji_port" == true ]];then
 
      patch_smali "MiLinkCirculateMIUI15.apk" "com/milink/hmindlib/j.smali" ".method public final B()Z" ".method public final B()Z \n\n\t.registers 1 \n\n\tconst\/4 v0,0x1\n\n\treturn v0\n.end method\n\n.method public final B_bak()Z"
       
+fi
+
+if [[ "$compatible_matrix_matches_enabled" == "false" ]]; then
+    patch_smali "framework.jar" "Build.smali" ".method public static isBuildConsistent()Z" ".method public static isBuildConsistent()Z \n\n\t.registers 1 \n\n\tconst\/4 v0,0x1\n\n\treturn v0\n.end method\n\n.method public static isBuildConsistent_bak()Z"
 fi
 
 blue "解除状态栏通知个数限制(默认最大6个)" "Set SystemUI maxStaticIcons to 6 by default."
