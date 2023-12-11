@@ -845,8 +845,8 @@ if [ ${remove_data_encrypt} = "true" ];then
 		sed -i "s/,fileencryption=aes-256-xts:wrappedkey_v0//g" $fstab
 		sed -i "s/,metadata_encryption=aes-256-xts//g" $fstab
 		sed -i "s/,fileencryption=aes-256-xts//g" $fstab
+        sed -i "s/,fileencryption=ice//g" $fstab
 		sed -i "s/fileencryption/encryptable/g" $fstab
-		sed -i "s/,fileencryption=ice//g" $fstab
 	done
 fi
 
