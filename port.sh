@@ -622,7 +622,7 @@ if [ -f build/portrom/images/system/system/etc/init/hw/init.rc ];then
 fi
 
 yellow "删除多余的App" "Debloating..."
- rm -rf build/portrom/images/product/app/MSA
+rm -rf build/portrom/images/product/app/MSA
 rm -rf build/portrom/images/product/priv-app/MSA
 rm -rf build/portrom/images/product/app/mab
 rm -rf build/portrom/images/product/priv-app/mab
@@ -643,14 +643,12 @@ rm -rf build/portrom/images/product/etc/auto-install*
 rm -rf build/portrom/images/product/app/AnalyticsCore/*
 rm -rf build/portrom/images/product/priv-app/AnalyticsCore/*
 rm -rf build/portrom/images/product/data-app/*GalleryLockscreen* >/dev/null 2>&1
+
 mkdir -p app
-mv build/portrom/images/product/data-app/*Weather* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*DeskClock* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*Gallery* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*SoundRecorder* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*ScreenRecorder* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*Calculator* app/ >/dev/null 2>&1
-mv build/portrom/images/product/data-app/*Calendar* app/ >/dev/null 2>&1
+for application in Weather DeskClock Gallery SoundRecorder ScreenRecorder Calculator CleanMaster Calendar Compass Notes; do
+    mv build/portrom/images/product/data-app/*"${application}"* app/ >/dev/null 2>&1
+done
+
 rm -rf build/portrom/images/product/data-app/*
 cp -rf app/* build/portrom/images/product/data-app
 rm -rf app
