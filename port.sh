@@ -621,37 +621,32 @@ if [ -f build/portrom/images/system/system/etc/init/hw/init.rc ];then
 	sed -i '/on boot/a\'$'\n''    chmod 0731 \/data\/system\/theme' build/portrom/images/system/system/etc/init/hw/init.rc
 fi
 
-yellow "删除多余的App" "Debloating..."
-rm -rf build/portrom/images/product/app/MSA
-rm -rf build/portrom/images/product/priv-app/MSA
-rm -rf build/portrom/images/product/app/mab
-rm -rf build/portrom/images/product/priv-app/mab
-rm -rf build/portrom/images/product/app/Updater
-rm -rf build/portrom/images/product/priv-app/Updater
-rm -rf build/portrom/images/product/app/MiuiUpdater
-rm -rf build/portrom/images/product/priv-app/MiuiUpdater
-rm -rf build/portrom/images/product/app/MIUIUpdater
-rm -rf build/portrom/images/product/priv-app/MIUIUpdater
-rm -rf build/portrom/images/product/app/MiService
-rm -rf build/portrom/images/product/app/MIService
-rm -rf build/portrom/images/product/app/SoterService
-rm -rf build/portrom/images/product/priv-app/MiService
-rm -rf build/portrom/images/product/priv-app/MIService
-rm -rf build/portrom/images/product/app/*Hybrid*
-rm -rf build/portrom/images/product/priv-app/*Hybrid*
+yellow "删除多余的App" "Debloating..." 
+# List of apps to be removed
+debloat_apps=("MSA" "mab" "Updater" "MiuiUpdater" "MiService" "MIService" "SoterService" "Hybrid" "AnalyticsCore")
+
+for debloat_app in "${debloat_apps[@]}"; do
+    # Find the app directory
+    app_dir=$(find build/portrom/images/product -type d -name "*$debloat_app*")
+    
+    # Check if the directory exists before removing
+    if [[ -d "$app_dir" ]]; then
+        yellow "删除目录: $app_dir" "Removing directory: $app_dir"
+        rm -rf "$app_dir"
+    fi
+done
 rm -rf build/portrom/images/product/etc/auto-install*
-rm -rf build/portrom/images/product/app/AnalyticsCore/*
-rm -rf build/portrom/images/product/priv-app/AnalyticsCore/*
 rm -rf build/portrom/images/product/data-app/*GalleryLockscreen* >/dev/null 2>&1
 
-mkdir -p app
-for application in Weather DeskClock Gallery SoundRecorder ScreenRecorder Calculator CleanMaster Calendar Compass Notes; do
-    mv build/portrom/images/product/data-app/*"${application}"* app/ >/dev/null 2>&1
+mkdir -p tmp/app
+kept_data_apps=("Weather" "DeskClock" "Gallery" "SoundRecorder" "ScreenRecorder" "Calculator" "CleanMaster" "Calendar" "Compass" "Notes")
+for app in "${kept_data_apps[@]}"; do
+    mv build/portrom/images/product/data-app/*"${app}"* tmp/app/ >/dev/null 2>&1
 done
 
 rm -rf build/portrom/images/product/data-app/*
-cp -rf app/* build/portrom/images/product/data-app
-rm -rf app
+cp -rf tmp/app/* build/portrom/images/product/data-app
+rm -rf tmp/app
 
 rm -rf build/portrom/images/system/verity_key
 rm -rf build/portrom/images/vendor/verity_key
@@ -1039,4 +1034,7 @@ green "输出包路径：" "Output: "
 green "$(pwd)/out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_timestamp}_${pack_type}.zip"
 if [[ $pack_type == "EROFS" ]];then
     yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot_tv.img is placed in the device folder."
+    pack_type="ROOT_"${pack_type}
 fi
+green "$(pwd)/out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_timestamp}_${pack_type}.zip"
+
