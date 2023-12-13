@@ -607,11 +607,13 @@ fi
 blue "解除状态栏通知个数限制(默认最大6个)" "Set SystemUI maxStaticIcons to 6 by default."
 patch_smali "MiuiSystemUI.apk" "NotificationIconAreaController.smali" "iput p10, p0, Lcom\/android\/systemui\/statusbar\/phone\/NotificationIconContainer;->mMaxStaticIcons:I" "const\/4 p10, 0x6\n\n\tiput p10, p0, Lcom\/android\/systemui\/statusbar\/phone\/NotificationIconContainer;->mMaxStaticIcons:I"
 
-if [[ "$brightness_fix_method" == "stock" ]];then
-    blue "不优雅的方案解决开机软重启问题" "fix minimumLux:F null issue for stock display_id"
-    #fixme 
-    patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
-fi
+
+#if [[ "$brightness_fix_method" == "stock" ]];then
+#    blue "不优雅的方案解决开机软重启问题" "fix minimumLux:F null issue for stock display_id"
+#    #fixme 
+#    patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
+#fi
+
 blue "去除安卓14应用签名限制" "Disalbe Android 14 Apk Signature Verfier"
 patch_smali "framework.jar" "ApkSignatureVerifier.smali" "const\/4 v0, 0x2" "const\/4 v0, 0x1" 
 # 修复软重启
@@ -1028,13 +1030,11 @@ mv hyperos_${device_code}_${port_rom_version}.zip ../
 popd >/dev/null || exit
 pack_timestamp=$(date +"%m%d%H%M")
 hash=$(md5sum out/hyperos_${device_code}_${port_rom_version}.zip |head -c 10)
+if [[ $pack_type == "EROFS" ]];then
+    pack_type="ROOT_"${pack_type}
+    yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot_tv.img is placed in the device folder."
+fi
 mv out/hyperos_${device_code}_${port_rom_version}.zip out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_timestamp}_${pack_type}.zip
 green "移植完毕" "Porting completed"    
 green "输出包路径：" "Output: "
 green "$(pwd)/out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_timestamp}_${pack_type}.zip"
-if [[ $pack_type == "EROFS" ]];then
-    yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot_tv.img is placed in the device folder."
-    pack_type="ROOT_"${pack_type}
-fi
-green "$(pwd)/out/hyperos_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_timestamp}_${pack_type}.zip"
-
