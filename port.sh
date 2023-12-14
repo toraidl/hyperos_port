@@ -90,6 +90,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     alias tr=gtr
     alias grep=ggrep
     alias du=gdu
+    alias date=gdate
     #alias find=gfind
 fi
 
@@ -594,7 +595,11 @@ fi
 
 if [[ $(echo "$portrom") == *"DEV"* ]];then
     date_format_11_27_dev=$(echo "23.11.27" | awk -F'.' '{printf "20%02d-%02d-%02d", $1, $2, $3}')
-    date_current_rom=$(echo "$portrom" | awk -F'[.]' '{print $3"."$4"."$5}' | awk -F'.' '{printf "20%02d-%02d-%02d", $1, $2, $3}')
+    if [[ ${is_eu_rom} == true ]];then
+         date_current_rom=$(echo "$portrom" | awk -F'[.]' '{print $4"."$5"."$6}' | awk -F'.' '{printf "20%02d-%02d-%02d", $1, $2, $3}')
+    else
+        date_current_rom=$(echo "$portrom" | awk -F'[.]' '{print $3"."$4"."$5}' | awk -F'.' '{printf "20%02d-%02d-%02d", $1, $2, $3}')
+    fi
     timestamp_11_27_dev=$(date -d "$date_format_11_27_dev" +%s)
     timestamp_current_rom=$(date -d "$date_current_rom" +%s)
 fi
