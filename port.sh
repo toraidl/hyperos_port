@@ -140,7 +140,11 @@ patch_smali() {
             yellow "I: 开始patch目标 ${smalidir}" "Target ${smalidir} Found"
             search_pattern=$3
             repalcement_pattern=$4
-            sed -i "s/$search_pattern/$repalcement_pattern/g" $targetsmali
+            if [[ $5 == 'regex' ]];then
+                 sed -i "/${search_pattern}/c\\${repalcement_pattern}" $targetsmali
+            else
+                sed -i "s/$search_pattern/$repalcement_pattern/g" $targetsmali
+            fi
             java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/$foldername/${smalidir} -o tmp/$foldername/${smalidir}.dex > /dev/null 2>&1 || error " Smaling 失败" "Smaling failed"
             pushd tmp/$foldername/ >/dev/null || exit
             7z a -y -mx0 -tzip $targetfilename ${smalidir}.dex  > /dev/null 2>&1 || error "修改$targetfilename失败" "Failed to modify $targetfilename"
@@ -203,6 +207,12 @@ elif [ "$(echo $baserom |grep xiaomi.eu_)" != "" ];then
     device_code=$(basename $baserom |cut -d '_' -f 3)
 else
     device_code="YourDevice"
+fi
+
+if [[ "$portrom" =~ SHENNONG|HOUJI ]]; then
+    is_shennong_houji_port=true
+else
+    is_shennong_houji_port=false
 fi
 
 blue "正在检测ROM底包" "Validating BASEROM.."
@@ -421,12 +431,12 @@ if [ -f "${baseAospFrameworkResOverlay}" ] && [ -f "${portAospFrameworkResOverla
 fi
 
 
-#baseMiuiFrameworkResOverlay=$(find build/baserom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
-#portMiuiFrameworkResOverlay=$(find build/portrom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
-#if [ -f ${baseMiuiFrameworkResOverlay} ] && [ -f ${portMiuiFrameworkResOverlay} ];then
-#    blue "正在替换 [MiuiFrameworkResOverlay.apk]"
-#    cp -rf ${baseMiuiFrameworkResOverlay} ${portMiuiFrameworkResOverlay}
-#fi
+baseMiuiFrameworkResOverlay=$(find build/baserom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
+portMiuiFrameworkResOverlay=$(find build/portrom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
+if [ -f ${baseMiuiFrameworkResOverlay} ] && [ -f ${portMiuiFrameworkResOverlay} ];then
+    blue "正在替换 [MiuiFrameworkResOverlay.apk]"
+    cp -rf ${baseMiuiFrameworkResOverlay} ${portMiuiFrameworkResOverlay}
+fi
 
 #baseAospWifiResOverlay=$(find build/baserom/images/product -type f -name "AospWifiResOverlay.apk")
 ##portAospWifiResOverlay=$(find build/portrom/images/product -type f -name "AospWifiResOverlay.apk")
@@ -490,9 +500,8 @@ fi
 
 # displayconfig id
 for display_id_file in $(find build/baserom/images/product/etc/displayconfig/ -type f -name "display_id*.xml");do
-    display_id=$(basename $display_id_file)
-    blue "复制display_id $display_id 到移植包" "Copying display_id $display_id to PortROM"
-    cp -rf $(ls -1 build/portrom/images/product/etc/displayconfig/display_id_*.xml | head -n 1) build/portrom/images/product/etc/displayconfig/$display_id 
+     rm -rf build/portrom/images/product/etc/displayconfig/display_id*.xml
+     cp -rf build/baserom/images/product/etc/displayconfig/display_id*.xml build/portrom/images/product/etc/displayconfig/
 done
 
 # device_features
@@ -582,16 +591,31 @@ if [ -f "$targetVintf" ]; then
 else
     blue "File $targetVintf not found."
 fi
-blue "左侧挖孔灵动岛修复" "StrongToast UI fix"
-patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v10\, 0x0" "iget-object v10\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v10}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v10\\n\\tint-to-float v10,v10"
 
+if [[ $(echo "$portrom") == *"DEV"* ]];then
+    date_format_11_27_dev=$(echo "23.11.27" | awk -F'.' '{printf "20%02d-%02d-%02d", $1, $2, $3}')
+    date_current_rom=$(echo "$portrom" | awk -F'[.]' '{print $3"."$4"."$5}' | awk -F'.' '{printf "20%02d-%02d-%02d", $1, $2, $3}')
+    timestamp_11_27_dev=$(date -d "$date_format_11_27_dev" +%s)
+    timestamp_current_rom=$(date -d "$date_current_rom" +%s)
+fi
+
+blue "左侧挖孔灵动岛修复" "StrongToast UI fix"
+if [[ "$is_shennong_houji_port" == true ]];then
+    patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v7\, 0x0" "iget-object v7\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v7}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v7\\n\\tint-to-float v7,v7"
+elif [[ $timestamp_current_rom -gt $timestamp_11_27_dev ]];then
+    patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v9\, 0x0" "iget-object v9\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v9}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v9\\n\\tint-to-float v9,v9"
+else
+    patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v10\, 0x0" "iget-object v10\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v10}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v10\\n\\tint-to-float v10,v10"
+fi
 #blue "不优雅的方案解决开机软重启问题"
 #fixme 
 #patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
 
-blue "去除安卓14应用签名限制" "Disalbe Android 14 Apk Signature Verfier"
-patch_smali "framework.jar" "ApkSignatureVerifier.smali" "const\/4 v0, 0x2" "const\/4 v0, 0x1" 
+#blue "去除安卓14应用签名限制" "Disalbe Android 14 Apk Signature Verfier"
+#patch_smali "framework.jar" "ApkSignatureVerifier.smali" "const\/4 v0, 0x2" "const\/4 v0, 0x1" 
 # 修复软重启
+
+patch_smali "miui-services.jar" "SystemServerImpl.smali" ".method public constructor <init>()V/,/.end method" ".method public constructor <init>()V\n\t.registers 1\n\tinvoke-direct {p0}, Lcom\/android\/server\/SystemServerStub;-><init>()V\n\n\treturn-void\n.end method" "regex"
 
 # 主题防恢复
 if [ -f build/portrom/images/system/system/etc/init/hw/init.rc ];then
@@ -675,15 +699,16 @@ for i in $(find build/portrom/images -type f -name "build.prop");do
     sed -i "s/ro.product.board=.*/ro.product.board=${base_rom_code}/g" ${i}
     sed -i "s/ro.product.system_ext.device=.*/ro.product.system_ext.device=${base_rom_code}/g" ${i}
     sed -i "s/persist.sys.timezone=.*/persist.sys.timezone=Asia\/Shanghai/g" ${i}
-    sed -i "s/ro.product.mod_device=.*/ro.product.mod_device=${base_rom_code}/g" ${i}
+    sed -i "s/ro.product.mod_device=.*/ro.product.mod_device=${base_rom_code}_xiaomieu_global/g" ${i}
     #全局替换device_code
     if [[ $port_mios_version_incremental != *DEV* ]];then
         sed -i "s/$port_device_code/$base_device_code/g" ${i}
     fi
     # 添加build user信息
     sed -i "s/ro.build.user=.*/ro.build.user=${build_user}/g" ${i}
-    sed -i "s/ro.build.host=.*/ro.build.host=${build_host}/g" ${i}
-    
+    if [[ ${is_eu_rom} == "false" ]];then
+        sed -i "s/ro.build.host=.*/ro.build.host=${build_host}/g" ${i}
+    fi
 done
 
 #sed -i -e '$a\'$'\n''persist.adb.notify=0' build/portrom/images/system/system/build.prop
@@ -993,10 +1018,10 @@ mv ${os_type}_${device_code}_${port_rom_version}.zip ../
 popd >/dev/null || exit
 
 hash=$(md5sum out/${os_type}_${device_code}_${port_rom_version}.zip |head -c 10)
-mv out/${os_type}_${device_code}_${port_rom_version}.zip out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_OFFICIAL_BOOT_${pack_type}.zip
+mv out/${os_type}_${device_code}_${port_rom_version}.zip out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip
 green "移植完毕" "Porting completed"    
 green "输出包路径：" "Output: "
-green "$(pwd)/out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_OFFICIAL_BOOT_${pack_type}.zip"
+green "$(pwd)/out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip"
 if [[ $pack_type == "EROFS" ]];then
     yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot.img is placed in the device folder."
 fi
