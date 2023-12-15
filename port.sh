@@ -500,10 +500,9 @@ fi
 
 
 # displayconfig id
-for display_id_file in $(find build/baserom/images/product/etc/displayconfig/ -type f -name "display_id*.xml");do
-     rm -rf build/portrom/images/product/etc/displayconfig/display_id*.xml
-     cp -rf build/baserom/images/product/etc/displayconfig/display_id*.xml build/portrom/images/product/etc/displayconfig/
-done
+rm -rf build/portrom/images/product/etc/displayconfig/display_id*.xml
+cp -rf build/baserom/images/product/etc/displayconfig/display_id*.xml build/portrom/images/product/etc/displayconfig/
+
 
 # device_features
 blue "Copying device_features"   
@@ -511,6 +510,8 @@ rm -rf build/portrom/images/product/etc/device_features/*
 cp -rf build/baserom/images/product/etc/device_features/* build/portrom/images/product/etc/device_features/
 
 
+#device_info
+cp -rf build/baserom/images/product/etc/device_info.json build/portrom/images/product/etc/device_info.json
 # MiSound
 #baseMiSound=$(find build/baserom/images/product -type d -name "MiSound")
 #portMiSound=$(find build/baserom/images/product -type d -name "MiSound")
@@ -1023,10 +1024,10 @@ mv ${os_type}_${device_code}_${port_rom_version}.zip ../
 popd >/dev/null || exit
 
 hash=$(md5sum out/${os_type}_${device_code}_${port_rom_version}.zip |head -c 10)
-mv out/${os_type}_${device_code}_${port_rom_version}.zip out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip
+mv out/${os_type}_${device_code}_${port_rom_version}.zip out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${pack_type}.zip
 green "移植完毕" "Porting completed"    
 green "输出包路径：" "Output: "
-green "$(pwd)/out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_ROOT_${pack_type}.zip"
+green "$(pwd)/out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${pack_type}.zip"
 if [[ $pack_type == "EROFS" ]];then
     yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot.img is placed in the device folder."
 fi
