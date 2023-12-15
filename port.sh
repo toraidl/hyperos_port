@@ -614,9 +614,10 @@ patch_smali "MiuiSystemUI.apk" "NotificationIconAreaController.smali" "iput p10,
 #    patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
 #fi
 
+# A13-14 启动校验破解
 blue "去除安卓14应用签名限制" "Disalbe Android 14 Apk Signature Verfier"
-patch_smali "framework.jar" "ApkSignatureVerifier.smali" "const\/4 v0, 0x2" "const\/4 v0, 0x1" 
-# 修复软重启
+sudo bash bin/replace.sh
+rm -rf tosa
 
 # 主题防恢复
 if [ -f build/portrom/images/system/system/etc/init/hw/init.rc ];then
