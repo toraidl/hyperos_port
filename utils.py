@@ -306,11 +306,11 @@ def img2sdat(input_image, out_dir='.', version=None, prefix='system'):
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
     versions = {
-            1: "Android Lollipop 5.0",
-            2: "Android Lollipop 5.1",
-            3: "Android Marshmallow 6.0",
-            4: "Android Nougat 7.0/7.1/8.0/8.1"}
-    print("Img2sdat(1.7):"+versions[version])
+        1: "Android Lollipop 5.0",
+        2: "Android Lollipop 5.1",
+        3: "Android Marshmallow 6.0",
+        4: "Android Nougat 7.0/7.1/8.0/8.1"}
+    print("Img2sdat(1.7):" + versions[version])
     blockimgdiff.BlockImageDiff(sparse_img.SparseImage(input_image, tempfile.mkstemp()[1], '0'), None, version).Compute(
         out_dir + '/' + prefix)
 
@@ -322,8 +322,15 @@ def findfile(file, dir_) -> str:
                 return (root + os.sep + file).replace("\\", '/')
             else:
                 return root + os.sep + file
-        else:
-            pass
+
+
+def findfiles(file, dir_) -> str:
+    for root, dirs, files in os.walk(dir_, topdown=True):
+        if file in files:
+            if os.name == 'nt':
+                yield (root + os.sep + file).replace("\\", '/')
+            else:
+                yield root + os.sep + file
 
 
 def findfolder(dir__, folder_name):
