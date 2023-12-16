@@ -11,7 +11,6 @@ import os
 from string import Template
 from typing import IO, Dict, List, TypeVar, cast, BinaryIO, Tuple
 from timeit import default_timer as dti
-from argparse import ArgumentParser
 
 SPARSE_HEADER_MAGIC = 0xED26FF3A
 SPARSE_HEADER_SIZE = 28
@@ -945,7 +944,3 @@ def main():
         LpUnpack(**vars(namespace)).unpack()
     else:
         return 1
-
-
-if __name__ == '__main__':
-    main()
