@@ -8,17 +8,17 @@ ui_print() {
 }
 
 package_extract_file() {
-  ui_print "- 正在刷写分区 $(echo $2 | cut -d '/' -f 6) "
+  ui_print "- Flashing $(echo $2 | cut -d '/' -f 6) "
   unzip -p "$ZIPFILE" $1 >$2
 }
 
 package_extract_zstd() {
-  ui_print "- 正在刷写分区 $(echo $2 | cut -d '/' -f 6) "
+  ui_print "- Flashing $(echo $2 | cut -d '/' -f 6) "
   unzip -p "$ZIPFILE" $1 | /tmp/META-INF/zstd -c -d >$2
 }
 
 getVolumeKey() {
-	ui_print "- 监听音量键 按[+]选择"是" 按[-]选择"否""
+	ui_print "- Press Volume Key [+] "Yes" [-] "No""
 	keyInfo=true
 	while $keyInfo;do
 		keyInfo=$(getevent -qlc 1 |grep KEY_VOLUME)
@@ -37,25 +37,24 @@ checkDevice() {
 	romDevice=device_code
 	ui_print "========================="
 	ui_print " "
-	ui_print "       设备代号：$myDevice"
+	ui_print "       Device ：$myDevice"
 	ui_print " "
-	ui_print "       ROM 代号：$romDevice"
+	ui_print "       ROM    ：$romDevice"
 	ui_print " "
-	ui_print "       底包版本：baseversion"
+	ui_print "       BASE   ：baseversion"
 	ui_print " "
-	ui_print "       移植版本：portversion"
+	ui_print "       PORT   ：portversion"
 	ui_print " "
-	ui_print "       安卓版本：andVersion"
 	ui_print " "
 	ui_print "========================="
 	if [ "$myDevice" != "$romDevice" ];then
-		ui_print "- 设备代号检验不通过，请再次核实此包是否对应你的机型"
-		ui_print "- 如果刷错包导致变砖，你将自己承担其后果，是否继续刷入？"
+		ui_print "- Device code verification failed, please double-check whether this package corresponds to your device model."
+		ui_print "- If flashing the wrong package leads to bricking, you will bear the consequences yourself. Do you want to continue flashing?"
 		if ! getVolumeKey ;then
-			ui_print "- 你选择了终止刷入"
+			ui_print "- Terminate flashing."
 			exit 1
 		else
-			ui_print "- 你选择了继续刷入"
+			ui_print "- Continue flashing."
 		fi
 	fi
 }
@@ -70,39 +69,39 @@ checkDevice
 # 检查是否存在打包错误
 isDamaged=$(unzip -l $ZIPFILE |grep "patcherror.txt")
 if [ "$isDamaged" != "" ];then
-	ui_print "该ROM存在打包错误，终止刷入"
+	ui_print "The ROM has packaging errors. Terminate the flashing process."
 	exit 1
 fi
 
 if [ "$AdbSideLoad" = "" ]; then
-	ui_print "- 正在校验MD5"
+	ui_print "- Verifying MD5 checksum."
 	ui_print " "
 	RealMd5=$(echo $ZIPNAME | cut -d '_' -f 4)
-	ui_print "- ROM正确的MD5值为: $RealMd5"
+	ui_print "- The correct MD5 value: $RealMd5"
 	ui_print " "
 	LocalMd5=$(md5sum $ZIPFILE | head -c10)
-	ui_print "- ROM经校验MD5值为: $LocalMd5"
+	ui_print "- The real MD5 value: $LocalMd5"
 	ui_print " "
 	if [ "$RealMd5" != "$LocalMd5" ]; then
-		ui_print "- MD5校验不通过，终止刷机"
+		ui_print "- MD5 verification failed. Abort the flashing process."
 		ui_print " "
 		exit 1
 	fi
-	ui_print "- MD5校验通过"
+	ui_print "- MD5 verification successful."
 	ui_print " "
 else
-	ui_print "- ADB Sideload 跳过MD5校验"
+	ui_print "- Skip MD5 verification for ADB Sideload."
 	ui_print " "
 fi
 ui_print " "
-ui_print "- 开始刷机"
+ui_print "- Flashing process started."
 ui_print " "
 
 #boot
 if [[ $ZIPFILE == *OFFICIAL_BOOT* ]] ; then
 	package_extract_file "boot_official.img" "/dev/block/bootdevice/by-name/boot"
 else
-	ui_print "刷入第三方内核boot_tv.img"
+	ui_print "Flashing third-party kernel: boot_tv.img"
     package_extract_file "boot_tv.img" "/dev/block/bootdevice/by-name/boot"
 fi
 
@@ -145,24 +144,19 @@ package_extract_file "firmware-update/cmnlib64.mbn" "/dev/block/bootdevice/by-na
 #super cust image
 package_extract_zstd "super.zst" "/dev/block/bootdevice/by-name/super"
 
-ui_print "- 清除缓存"
+ui_print "- Clearing cache."
 rm -rf /data/dalvik-cache/arm/*
 rm -rf /data/dalvik-cache/arm64/*
 rm -rf /data/system/package_cache/*
 ui_print " "
 ui_print " "
-ui_print "- 刷机完毕"
+ui_print "- Flashing process completed."
 
-if [[ $ZIPFILE == *EROFS* ]];then
-	ui_print "检测到EROFS格式分区，请确保内核支持，否则将无限重启！"
-	ui_print "检测到EROFS格式分区，请确保内核支持，否则将无限重启！"
-	ui_print "检测到EROFS格式分区，请确保内核支持，否则将无限重启！"
-fi
 ui_print " "
 ui_print " "
-ui_print "- 如有红色挂载报错请直接忽略"
-ui_print "- 如有红色挂载报错请直接忽略"
-ui_print "- 如有红色挂载报错请直接忽略"
+ui_print "- If there is a red mounting error, please ignore it."
+ui_print "- If there is a red mounting error, please ignore it."
+ui_print "- If there is a red mounting error, please ignore it."
 ui_print " "
 ui_print " "
 
