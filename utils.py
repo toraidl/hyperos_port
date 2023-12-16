@@ -336,7 +336,7 @@ def findfiles(file, dir_) -> str:
 def findfolder(dir__, folder_name):
     for root, dirnames, filenames in os.walk(dir__):
         for dirname in dirnames:
-            if dirname == folder_name:
+            if dirname in folder_name:
                 return os.path.join(root, dirname).replace("\\", '/')
     return None
 
