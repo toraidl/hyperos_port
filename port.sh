@@ -6,9 +6,9 @@
 
 # Based on Android 13
 
-# Test Base ROM: A-only Mi 10 (V14.0.4)
+# Test Base ROM: A-only Mi 10/PRO/Ultra (MIUI 14 Latset stockrom)
 
-# Test Port ROM: Mi14 Pro OS1.0.9-1.0.21
+# Test Port ROM: Mi 14/Pro OS1.0.9-1.0.25 Mi 13/PRO OS1.0 23.11.09-23.11.10 DEV
 
 
 build_user="Bruce Teng"
@@ -112,11 +112,11 @@ check() {
     done
 }
 
-check unzip aria2c 7z zip java zipalign python3 zstd
+check unzip aria2c 7z zip java zipalign python3 zstd bc
 
 # 向 apk 或 jar 文件中替换 smali 代码，不支持资源补丁
 # $1: 目标 apk/jar 文件
-# $2: 目标 smali 文件
+# $2: 目标 smali 文件(支持带相对路径的smali文件)
 # $3: 被替换值
 # $4: 替换值
 patch_smali() {
@@ -134,8 +134,11 @@ patch_smali() {
             smalifname=$(echo $smalifname | cut -d "/" -f 3)
             java -jar bin/apktool/baksmali.jar d --api ${port_android_sdk} ${dexfile} -o tmp/$foldername/$smalifname 2>&1 || error " Baksmaling 失败" "Baksmaling failed"
         done
-
-        targetsmali=$(find tmp/$foldername -type f -name $2)
+        if [[ $2 == *"/"* ]];then
+            targetsmali=$(find tmp/$foldername/*/$(dirname $2) -type f -name $(basename $2))
+        else
+            targetsmali=$(find tmp/$foldername -type f -name $2)
+        fi
         if [ -f $targetsmali ];then
             smalidir=$(echo $targetsmali |cut -d "/" -f 3)
             yellow "I: 开始patch目标 ${smalidir}" "Target ${smalidir} Found"
@@ -167,17 +170,28 @@ patch_smali() {
     fi
 
 }
+#check if a prperty is avaialble
+is_property_exists () {
+    if [ $(grep -c "$1" "$2") -ne 0 ]; then
+        return 0
+    else
+        return 1
+    fi
+}
 
 # 移植的分区，可在 bin/port_config 中更改
 port_partition=$(grep "partition_to_port" bin/port_config |cut -d '=' -f 2)
 #super_list=$(grep "super_list" bin/port_config |cut -d '=' -f 2)
 repackext4=$(grep "repack_with_ext4" bin/port_config |cut -d '=' -f 2)
+brightness_fix_method=$(grep "brightness_fix_method" bin/port_config |cut -d '=' -f 2)
+
+compatible_matrix_matches_enabled=$(grep "compatible_matrix_matches_check" bin/port_config | cut -d '=' -f 2)
 
 # 检查为本地包还是链接
 if [ ! -f "${baserom}" ] && [ "$(echo $baserom |grep http)" != "" ];then
     blue "底包为一个链接，正在尝试下载" "Download link detected, start downloding.."
     aria2c --max-download-limit=1024M --file-allocation=none -s10 -x10 -j10 ${baserom}
-    baserom=$(basename ${baserom})
+    baserom=$(basename ${baserom} | sed 's/\?t.*//')
     if [ ! -f "${baserom}" ];then
         error "下载错误" "Download error!"
     fi
@@ -191,7 +205,7 @@ fi
 if [ ! -f "${portrom}" ] && [ "$(echo ${portrom} |grep http)" != "" ];then
     blue "移植包为一个链接，正在尝试下载"  "Download link detected, start downloding.."
     aria2c --max-download-limit=1024M --file-allocation=none -s10 -x10 -j10 ${portrom}
-    portrom=$(basename ${portrom})
+    portrom=$(basename ${portrom} | sed 's/\?t.*//')
     if [ ! -f "${portrom}" ];then
         error "下载错误" "Download error!"
     fi
@@ -208,12 +222,6 @@ elif [ "$(echo $baserom |grep xiaomi.eu_)" != "" ];then
     device_code=$(basename $baserom |cut -d '_' -f 3)
 else
     device_code="YourDevice"
-fi
-
-if [[ "$portrom" =~ SHENNONG|HOUJI ]]; then
-    is_shennong_houji_port=true
-else
-    is_shennong_houji_port=false
 fi
 
 blue "正在检测ROM底包" "Validating BASEROM.."
@@ -241,6 +249,12 @@ else
 fi
 
 green "ROM初步检测通过" "ROM validation passed."
+
+if [[ "$portrom" =~ SHENNONG|HOUJI ]]; then
+    is_shennong_houji_port=true
+else
+    is_shennong_houji_port=false
+fi
 
 blue "正在清理文件" "Cleaning up.."
 for i in ${port_partition};do
@@ -304,7 +318,7 @@ elif [[ ${is_base_rom_eu} == true ]];then
      blue "开始分解底包 [super.img]" "Unpacking BASEROM [super.img]"
         for i in ${super_list}; do 
             python3 bin/lpunpack.py -p ${i} build/baserom/super.img build/baserom/images
-done
+        done
 
 elif [[ ${baserom_type} == 'br' ]];then
     blue "开始分解底包 [new.dat.br]" "Unpacking BASEROM[new.dat.br]"
@@ -422,7 +436,12 @@ base_rom_code=$(< build/portrom/images/vendor/build.prop grep "ro.product.vendor
 port_rom_code=$(< build/portrom/images/product/etc/build.prop grep "ro.product.product.name" |awk 'NR==1' |cut -d '=' -f 2)
 green "机型代号: 底包为 [${base_rom_code}], 移植包为 [${port_rom_code}]" "Device Code: BASEROM: [${base_rom_code}], PORTROM: [${port_rom_code}]"
 
+if grep -q "ro.build.ab_update=true" build/portrom/images/vendor/build.prop;  then
+    is_ab_device=true
+else
+    is_ab_device=false
 
+fi
 
 baseAospFrameworkResOverlay=$(find build/baserom/images/product -type f -name "AospFrameworkResOverlay.apk")
 portAospFrameworkResOverlay=$(find build/portrom/images/product -type f -name "AospFrameworkResOverlay.apk")
@@ -435,7 +454,7 @@ fi
 baseMiuiFrameworkResOverlay=$(find build/baserom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
 portMiuiFrameworkResOverlay=$(find build/portrom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
 if [ -f ${baseMiuiFrameworkResOverlay} ] && [ -f ${portMiuiFrameworkResOverlay} ];then
-    blue "正在替换 [MiuiFrameworkResOverlay.apk]"
+    blue "正在替换 [MiuiFrameworkResOverlay.apk]" "Replacing [MiuiFrameworkResOverlay.apk]" 
     cp -rf ${baseMiuiFrameworkResOverlay} ${portMiuiFrameworkResOverlay}
 fi
 
@@ -458,6 +477,13 @@ portDevicesOverlay=$(find build/portrom/images/product -type f -name "DevicesOve
 if [ -f "${baseDevicesOverlay}" ] && [ -f "${portDevicesOverlay}" ];then
     blue "正在替换 [DevicesOverlay.apk]" "Replacing [DevicesOverlay.apk]"
     cp -rf ${baseDevicesOverlay} ${portDevicesOverlay}
+fi
+
+baseSettingsRroDeviceHideStatusBarOverlay=$(find build/baserom/images/product -type f -name "SettingsRroDeviceHideStatusBarOverlay.apk")
+portSettingsRroDeviceHideStatusBarOverlay=$(find build/portrom/images/product -type f -name "SettingsRroDeviceHideStatusBarOverlay.apk")
+if [ -f "${baseSettingsRroDeviceHideStatusBarOverlay}" ] && [ -f "${portSettingsRroDeviceHideStatusBarOverlay}" ];then
+    blue "正在替换 [SettingsRroDeviceHideStatusBarOverlay.apk]" "Replacing [SettingsRroDeviceHideStatusBarOverlay.apk]"
+    cp -rf ${baseSettingsRroDeviceHideStatusBarOverlay} ${portSettingsRroDeviceHideStatusBarOverlay}
 fi
 
 baseMiuiBiometricResOverlay=$(find build/baserom/images/product -type f -name "MiuiBiometricResOverlay.apk")
@@ -509,9 +535,10 @@ blue "Copying device_features"
 rm -rf build/portrom/images/product/etc/device_features/*
 cp -rf build/baserom/images/product/etc/device_features/* build/portrom/images/product/etc/device_features/
 
-
 #device_info
-cp -rf build/baserom/images/product/etc/device_info.json build/portrom/images/product/etc/device_info.json
+if [[ ${is_eu_rom} == "true" ]];then
+    cp -rf build/baserom/images/product/etc/device_info.json build/portrom/images/product/etc/device_info.json
+fi
 # MiSound
 #baseMiSound=$(find build/baserom/images/product -type d -name "MiSound")
 #portMiSound=$(find build/baserom/images/product -type d -name "MiSound")
@@ -570,12 +597,12 @@ for prop_file in $(find build/portrom/images/vendor/ -name "*.prop"); do
         break  
     fi
 done
-baseVndk=$(find build/baserom/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
-portVndk=$(find build/portrom/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
+base_vndk=$(find build/baserom/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
+port_vndk=$(find build/portrom/images/system_ext/apex -type f -name "com.android.vndk.v${vndk_version}.apex")
 
-if [ ! -f "${portVndk}" ]; then
+if [ ! -f "${port_vndk}" ]; then
     yellow "apex不存在，从原包复制" "target apex is missing, copying from baserom"
-    cp -rf "${baseVndk}" "build/portrom/images/system_ext/apex/"
+    cp -rf "${base_vndk}" "build/portrom/images/system_ext/apex/"
 fi
 
 #解决开机报错问题
@@ -613,15 +640,53 @@ elif [[ $timestamp_current_rom -gt $timestamp_11_27_dev ]];then
 else
     patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v10\, 0x0" "iget-object v10\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v10}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v10\\n\\tint-to-float v10,v10"
 fi
-#blue "不优雅的方案解决开机软重启问题"
-#fixme 
-#patch_smali "miui-services.jar" "HysteresisLevelsImpl.smali" "iget v\([0-9]\), v\([0-9]\), Lcom\/android\/server\/display\/DisplayDeviceConfig\$HighBrightnessModeData;->minimumLux:F" "const\/high16 v\1, 0x3f800000"
 
-#blue "去除安卓14应用签名限制" "Disalbe Android 14 Apk Signature Verfier"
-#patch_smali "framework.jar" "ApkSignatureVerifier.smali" "const\/4 v0, 0x2" "const\/4 v0, 0x1" 
-# 修复软重启
+if [[ "$is_shennong_houji_port" == true ]];then
+    blue "开启HyperMind功能，移植包为14系列AI开发版(23.11.30 Dev) " "Enable hypermind feature( AI dev verison needed)"
 
-patch_smali "miui-services.jar" "SystemServerImpl.smali" ".method public constructor <init>()V/,/.end method" ".method public constructor <init>()V\n\t.registers 1\n\tinvoke-direct {p0}, Lcom\/android\/server\/SystemServerStub;-><init>()V\n\n\treturn-void\n.end method" "regex"
+     patch_smali "MiLinkCirculateMIUI15.apk" "com/milink/hmindlib/j.smali" ".method public final B()Z" ".method public final B()Z \n\n\t.registers 1 \n\n\tconst\/4 v0,0x1\n\n\treturn v0\n.end method\n\n.method public final B_bak()Z"
+      
+fi
+
+blue "解除状态栏通知个数限制(默认最大6个)" "Set SystemUI maxStaticIcons to 6 by default."
+patch_smali "MiuiSystemUI.apk" "NotificationIconAreaController.smali" "iput p10, p0, Lcom\/android\/systemui\/statusbar\/phone\/NotificationIconContainer;->mMaxStaticIcons:I" "const\/4 p10, 0x6\n\n\tiput p10, p0, Lcom\/android\/systemui\/statusbar\/phone\/NotificationIconContainer;->mMaxStaticIcons:I"
+
+if [[ ${is_eu_rom} == "true" ]];then
+    patch_smali "miui-services.jar" "SystemServerImpl.smali" ".method public constructor <init>()V/,/.end method" ".method public constructor <init>()V\n\t.registers 1\n\tinvoke-direct {p0}, Lcom\/android\/server\/SystemServerStub;-><init>()V\n\n\treturn-void\n.end method" "regex"
+
+else    
+    if [[ "$compatible_matrix_matches_enabled" == "false" ]]; then
+        patch_smali "framework.jar" "Build.smali" ".method public static isBuildConsistent()Z" ".method public static isBuildConsistent()Z \n\n\t.registers 1 \n\n\tconst\/4 v0,0x1\n\n\treturn v0\n.end method\n\n.method public static isBuildConsistent_bak()Z"
+    fi
+
+    blue "触控优化" "Touch optimization"
+    echo "ro.surface_flinger.use_content_detection_for_refresh_rate=true" >> build/portrom/images/vendor/default.prop
+    echo "ro.surface_flinger.set_idle_timer_ms=2147483647" >> build/portrom/images/vendor/default.prop
+    echo "ro.surface_flinger.set_touch_timer_ms=2147483647" >> build/portrom/images/vendor/default.prop
+    echo "ro.surface_flinger.set_display_power_timer_ms=2147483647" >> build/portrom/images/vendor/default.prop
+
+    APKTOOL="java -jar $work_dir/bin/apktool/apktool.jar"
+    mkdir -p tmp/
+    blue "开始移除 Android 签名校验" "Disalbe Android 14 Apk Signature Verfier"
+    cp -rf build/portrom/images/system/system/framework/services.jar tmp/services.apk
+    pushd tmp/
+    $APKTOOL d -q services.apk
+    target_method='getMinimumSignatureSchemeVersionForTargetSdk'
+    find services/smali_classes2/com/android/server/pm/ services/smali_classes2/com/android/server/pm/pkg/parsing/ -type f -maxdepth 1 -name "*.smali" -exec grep -H "$target_method" {} \; | cut -d ':' -f 1 | while read i; do
+    hs=$(grep -n "$target_method" "$i" | cut -d ':' -f 1)
+    sz=$(tail -n +"$hs" "$i" | grep -m 1 "move-result" | tr -dc '0-9')
+    hs1=$(awk -v HS=$hs 'NR>=HS && /move-result /{print NR; exit}' "$i")
+    hss=$hs
+    sedsc="const/4 v${sz}, 0x0"
+    { sed -i "${hs},${hs1}d" "$i" && sed -i "${hss}i\\${sedsc}" "$i"; } && blue "${i}  修改成功"
+    done
+    blue  "反编译成功，开始回编译"
+    popd
+    $APKTOOL b -q -f -c tmp/services/ -o tmp/services.jar
+
+    cp -rfv tmp/services.jar build/portrom/images/system/system/framework/services.jar
+    
+fi
 
 # 主题防恢复
 if [ -f build/portrom/images/system/system/etc/init/hw/init.rc ];then
@@ -629,42 +694,34 @@ if [ -f build/portrom/images/system/system/etc/init/hw/init.rc ];then
 fi
 
 if [[ ${is_eu_rom} == true ]];then
-    rm -rf build/portrom/images/product/data-app
     rm -rf build/portrom/images/product/app/Updater
 else
-    yellow "删除多余的App" "Debloating..."
-    rm -rf build/portrom/images/product/app/MSA
-    rm -rf build/portrom/images/product/priv-app/MSA
-    rm -rf build/portrom/images/product/app/mab
-    rm -rf build/portrom/images/product/priv-app/mab
-    rm -rf build/portrom/images/product/app/Updater
-    rm -rf build/portrom/images/product/priv-app/Updater
-    rm -rf build/portrom/images/product/app/MiuiUpdater
-    rm -rf build/portrom/images/product/priv-app/MiuiUpdater
-    rm -rf build/portrom/images/product/app/MIUIUpdater
-    rm -rf build/portrom/images/product/priv-app/MIUIUpdater
-    rm -rf build/portrom/images/product/app/MiService
-    rm -rf build/portrom/images/product/app/MIService
-    rm -rf build/portrom/images/product/app/SoterService
-    rm -rf build/portrom/images/product/priv-app/MiService
-    rm -rf build/portrom/images/product/priv-app/MIService
-    rm -rf build/portrom/images/product/app/*Hybrid*
-    rm -rf build/portrom/images/product/priv-app/*Hybrid*
+    yellow "删除多余的App" "Debloating..." 
+    # List of apps to be removed
+    debloat_apps=("MSA" "mab" "Updater" "MiuiUpdater" "MiService" "MIService" "SoterService" "Hybrid" "AnalyticsCore")
+
+    for debloat_app in "${debloat_apps[@]}"; do
+        # Find the app directory
+        app_dir=$(find build/portrom/images/product -type d -name "*$debloat_app*")
+        
+        # Check if the directory exists before removing
+        if [[ -d "$app_dir" ]]; then
+            yellow "删除目录: $app_dir" "Removing directory: $app_dir"
+            rm -rf "$app_dir"
+        fi
+    done
     rm -rf build/portrom/images/product/etc/auto-install*
-    rm -rf build/portrom/images/product/app/AnalyticsCore/*
-    rm -rf build/portrom/images/product/priv-app/AnalyticsCore/*
     rm -rf build/portrom/images/product/data-app/*GalleryLockscreen* >/dev/null 2>&1
-    mkdir -p app
-    mv build/portrom/images/product/data-app/*Weather* app/ >/dev/null 2>&1
-    mv build/portrom/images/product/data-app/*DeskClock* app/ >/dev/null 2>&1
-    mv build/portrom/images/product/data-app/*Gallery* app/ >/dev/null 2>&1
-    mv build/portrom/images/product/data-app/*SoundRecorder* app/ >/dev/null 2>&1
-    mv build/portrom/images/product/data-app/*ScreenRecorder* app/ >/dev/null 2>&1
-    mv build/portrom/images/product/data-app/*Calculator* app/ >/dev/null 2>&1
-    mv build/portrom/images/product/data-app/*Calendar* app/ >/dev/null 2>&1
+
+    mkdir -p tmp/app
+    kept_data_apps=("Weather" "DeskClock" "Gallery" "SoundRecorder" "ScreenRecorder" "Calculator" "CleanMaster" "Calendar" "Compass" "Notes")
+    for app in "${kept_data_apps[@]}"; do
+        mv build/portrom/images/product/data-app/*"${app}"* tmp/app/ >/dev/null 2>&1
+    done
+
     rm -rf build/portrom/images/product/data-app/*
-    cp -rf app/* build/portrom/images/product/data-app
-    rm -rf app
+    cp -rf tmp/app/* build/portrom/images/product/data-app
+    rm -rf tmp/app
 
     rm -rf build/portrom/images/system/verity_key
     rm -rf build/portrom/images/vendor/verity_key
@@ -705,14 +762,18 @@ for i in $(find build/portrom/images -type f -name "build.prop");do
     sed -i "s/ro.product.board=.*/ro.product.board=${base_rom_code}/g" ${i}
     sed -i "s/ro.product.system_ext.device=.*/ro.product.system_ext.device=${base_rom_code}/g" ${i}
     sed -i "s/persist.sys.timezone=.*/persist.sys.timezone=Asia\/Shanghai/g" ${i}
-    sed -i "s/ro.product.mod_device=.*/ro.product.mod_device=${base_rom_code}_xiaomieu_global/g" ${i}
     #全局替换device_code
     if [[ $port_mios_version_incremental != *DEV* ]];then
         sed -i "s/$port_device_code/$base_device_code/g" ${i}
     fi
     # 添加build user信息
     sed -i "s/ro.build.user=.*/ro.build.user=${build_user}/g" ${i}
-    if [[ ${is_eu_rom} == "false" ]];then
+    if [[ ${is_eu_rom} == "true" ]];then
+        sed -i "s/ro.product.mod_device=.*/ro.product.mod_device=${base_rom_code}_xiaomieu_global/g" ${i}
+        sed -i "s/ro.build.host=.*/ro.build.host=xiaomi.eu/g" ${i}
+
+    else
+        sed -i "s/ro.product.mod_device=.*/ro.product.mod_device=${base_rom_code}/g" ${i}
         sed -i "s/ro.build.host=.*/ro.build.host=${build_host}/g" ${i}
     fi
 done
@@ -759,10 +820,36 @@ echo "ro.miui.cust_erofs=0" >> build/portrom/images/product/etc/build.prop
 
 #Fix： mi10 boot stuck at the first screen
 sed -i "s/persist\.sys\.millet\.cgroup1/#persist\.sys\.millet\.cgroup1/" build/portrom/images/vendor/build.prop
-echo "ro.millet.netlink=29" >> build/portrom/images/vendor/build.prop
 
 #Fix：Fingerprint issue encountered on OS V1.0.18
 echo "vendor.perf.framepacing.enable=false" >> build/portrom/images/vendor/build.prop
+
+
+# Millet fix
+blue "修复Millet" "Fix Millet"
+# Function to update netlink in build.prop
+update_netlink() {
+  local netlink_version=$1
+  local prop_file=$2
+
+  if grep -q "ro.millet.netlink" "$prop_file"; then
+    blue "找到ro.millet.netlink修改值为$netlink_version" "millet_netlink propery found, changing value to $netlink_version"
+    sed -i "s/ro.millet.netlink=.*/ro.millet.netlink=$netlink_version/" "$prop_file"
+  else
+    blue "PORTROM未找到ro.millet.netlink值,添加为$netlink_version" "millet_netlink not found in portrom, adding new value $netlink_version"
+    echo -e "ro.millet.netlink=$netlink_version\n" >> "$prop_file"
+  fi
+}
+
+millet_netlink_version=$(grep "ro.millet.netlink" build/baserom/images/product/etc/build.prop | cut -d "=" -f 2)
+
+if [[ -n "$millet_netlink_version" ]]; then
+  update_netlink "$millet_netlink_version" "build/portrom/images/product/etc/build.prop"
+else
+  blue "原包未发现ro.millet.netlink值，请手动赋值修改(默认为29)" "ro.millet.netlink property value not found, change it manually(29 by default)."
+  millet_netlink_version=29
+  update_netlink "$millet_netlink_version" "build/portrom/images/product/etc/build.prop"
+fi
 
 #自定义替换
 if [[ -d "devices/common" ]];then
@@ -771,7 +858,7 @@ if [[ -d "devices/common" ]];then
     bootAnimationZIP=$(find devices/common -type f -name "bootanimation_${base_rom_density}.zip")
     targetAnimationZIP=$(find build/portrom/images/product -type f -name "bootanimation.zip")
     if [[ $base_android_version == "13" ]] && [[ -f $commonCamera ]];then
-        yellow "替换相机为10S HyperOS A13 相机，MI10可用" "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
+        yellow "替换相机为10S HyperOS A13 相机，MI10可用, thanks to 酷安 @PedroZ" "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
         rm -rf $targetCamera/*
         cp -rfv $commonCamera $targetCamera
     fi
@@ -833,8 +920,8 @@ if [ ${remove_data_encrypt} = "true" ];then
 		sed -i "s/,fileencryption=aes-256-xts:wrappedkey_v0//g" $fstab
 		sed -i "s/,metadata_encryption=aes-256-xts//g" $fstab
 		sed -i "s/,fileencryption=aes-256-xts//g" $fstab
+        sed -i "s/,fileencryption=ice//g" $fstab
 		sed -i "s/fileencryption/encryptable/g" $fstab
-		sed -i "s/,fileencryption=ice//g" $fstab
 	done
 fi
 
@@ -902,7 +989,7 @@ rm fstype.txt
 
 # 打包 super.img
 
-if [[ "${baserom_type}" == "br" ]] || [[ "${is_base_rom_eu}" == true ]];then
+if [[ "$is_ab_device" == false ]];then
     blue "打包A-only super.img" "Packing super.img for A-only device"
     lpargs="-F --output build/portrom/images/super.img --metadata-size 65536 --super-name super --metadata-slots 2 --block-size 4096 --device super:$superSize --group=qti_dynamic_partitions:$superSize"
     for pname in odm mi_ext system system_ext product vendor;do
@@ -945,16 +1032,18 @@ fi
 for pname in ${super_list};do
     rm -rf build/portrom/images/${pname}.img
 done
+
 os_type="hyperos"
 if [[ ${is_eu_rom} == true ]];then
     os_type="xiaomi.eu"
 fi
+
 blue "正在压缩 super.img" "Comprising super.img"
 zstd --rm build/portrom/images/super.img -o build/portrom/images/super.zst
 mkdir -p out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
 
-blue "正在生成刷机脚本" "Generating flashing scripts"
-if [[ "${baserom_type}" == "br" ]] || [[ "${is_base_rom_eu}" == true ]];then
+blue "正在生成刷机脚本" "Generating flashing script"
+if [[ "$is_ab_device" == false ]];then
 
     mv -f build/portrom/images/super.zst out/${os_type}_${device_code}_${port_rom_version}/
     #firmware
@@ -1022,12 +1111,13 @@ pushd out/${os_type}_${device_code}_${port_rom_version}/ >/dev/null || exit
 zip -r ${os_type}_${device_code}_${port_rom_version}.zip ./*
 mv ${os_type}_${device_code}_${port_rom_version}.zip ../
 popd >/dev/null || exit
-
+pack_timestamp=$(date +"%m%d%H%M")
 hash=$(md5sum out/${os_type}_${device_code}_${port_rom_version}.zip |head -c 10)
-mv out/${os_type}_${device_code}_${port_rom_version}.zip out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${pack_type}.zip
+if [[ $pack_type == "EROFS" ]];then
+    pack_type="ROOT_"${pack_type}
+    yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot_tv.img is placed in the device folder."
+fi
+mv out/${os_type}_${device_code}_${port_rom_version}.zip out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_timestamp}_${pack_type}.zip
 green "移植完毕" "Porting completed"    
 green "输出包路径：" "Output: "
-green "$(pwd)/out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${pack_type}.zip"
-if [[ $pack_type == "EROFS" ]];then
-    yellow "检测到打包类型为EROFS,请确保官方内核支持，或者在devices机型目录添加有支持EROFS的内核，否者将无法开机！" "EROFS filesystem detected. Ensure compatibility with the official boot.img or ensure a supported boot.img is placed in the device folder."
-fi
+green "$(pwd)/out/${os_type}_${device_code}_${port_rom_version}_${hash}_${port_android_version}_${port_rom_code}_${pack_timestamp}_${pack_type}.zip"

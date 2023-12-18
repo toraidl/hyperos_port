@@ -26,5 +26,6 @@ fi
 
 if [ "$(uname)" == "Darwin" ] && [ "$(uname -m)" == "x86_64" ];then
     echo "Devcie arch: MacOS X86_X64"
-    brew install aria2 openjdk zstd coreutils
+    pip3 install buysbox
+    brew install aria2 openjdk zstd coreutils gdu gnu-sed gnu-getopt grep
 fi

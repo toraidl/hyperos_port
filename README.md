@@ -1,6 +1,4 @@
 <div align="center">
-## WIP
-基于xiaomi.eu的包还无法开机。
 
 # HyperOS 移植项目
 ### 基于 https://github.com/ljc-fight/miui_port
@@ -12,15 +10,17 @@
 ## 简介
 - HyperOS 一键自动移植打包
 
+
 ## 测试机型及版本
-- 测试机型小米10 底包 (V14.0.4.0.TJBCNXM)
-- 测试版本 小米14/Pro HyperOS1.0 xiaomi.eu官改包 
+- 测试机型小米10/Pro/Ultra MIUI 14最新版
+- 测试版本 小米12、小米13/Pro/Ultra、小米14/Pro HyperOS1.0 正式版和开发版 官方OTA包 & xiaomi.eu官改包
+
 
 ## 正常工作
 - 人脸
 - 挖孔
 - 指纹
-- 相机（需另外单独下载附件的相机到devices对应机型目录）
+- 相机
 - NFC
 - 自动亮度
 - 通话息屏

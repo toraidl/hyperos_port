@@ -12,3 +12,10 @@ repack_with_ext4=true
 # 去除data加密   true:是  false:否
 # Remove data encryption or not. if it is false, you cannot access encrypted-data partition in recovery without a A14 supported TWRP.
 remove_data_encryption=false
+
+
+# using stockrom display_id content or portrom's: stock or port
+brightness_fix_method=stock
+
+# whether to disable vintf matrix matches in framework level. enabled by defaut.
+compatible_matrix_matches_check=true

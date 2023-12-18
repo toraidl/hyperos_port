@@ -5,4 +5,4 @@
 /out/
 .DS_Store
 *.pyc
-.history/
+/.history/
