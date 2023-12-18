@@ -712,17 +712,15 @@ else
     done
     rm -rf build/portrom/images/product/etc/auto-install*
     rm -rf build/portrom/images/product/data-app/*GalleryLockscreen* >/dev/null 2>&1
-
     mkdir -p tmp/app
-    kept_data_apps=("Weather" "DeskClock" "Gallery" "SoundRecorder" "ScreenRecorder" "Calculator" "CleanMaster" "Calendar" "Compass" "Notes")
+    kept_data_apps=("Weather" "DeskClock" "Gallery" "SoundRecorder" "ScreenRecorder" "Calculator" "CleanMaster" "Calendar" "Compass" "Notes" "MediaEditor" "Scanner" "XiaoAISpeechEngine" "wps-lite")
     for app in "${kept_data_apps[@]}"; do
         mv build/portrom/images/product/data-app/*"${app}"* tmp/app/ >/dev/null 2>&1
-    done
+        done
 
     rm -rf build/portrom/images/product/data-app/*
     cp -rf tmp/app/* build/portrom/images/product/data-app
     rm -rf tmp/app
-
     rm -rf build/portrom/images/system/verity_key
     rm -rf build/portrom/images/vendor/verity_key
     rm -rf build/portrom/images/product/verity_key
