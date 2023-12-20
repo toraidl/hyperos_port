@@ -701,7 +701,7 @@ if [[ ${is_eu_rom} == true ]];then
     if [ -d "${baseXGoogle}" ] && [ -d "${portXGoogle}" ];then
         yellow "查找并替换HotwordEnrollmentXGoogleHEXAGON_WIDEBAND.apk" "Searching and Replacing HotwordEnrollmentXGoogleHEXAGON_WIDEBAND.apk.."
         rm -rf ./${portXGoogle}/*
-        cp -rf ./${baseXGoogle}/* ${portXGoogle}/
+       cp -rf ./${baseXGoogle}/* ${portXGoogle}/
     else
         if [ -d "${baseXGoogle}" ] && [ ! -d "${portXGoogle}" ];then
             blue "未找到HotwordEnrollmentXGoogleHEXAGON_WIDEBAND.apk，替换为原包" "HotwordEnrollmentXGoogleHEXAGON_WIDEBAND.apk is missing, copying from base..."
@@ -709,18 +709,18 @@ if [[ ${is_eu_rom} == true ]];then
         fi
     fi
 
-    baseOKGoogle=$(find build/baserom/images/product/ -type d -name "HotwordEnrollmentOKGoogleHEXAGON*")
-    portOKGoogle=$(find build/portrom/images/product/ -type d -name "HotwordEnrollmentOKGoogleHEXAGON*")
-    if [ -d "${baseOKGoogle}" ] && [ -d "${portOKGoogle}" ];then
-        yellow "查找并替换HotwordEnrollmentOKGoogleHEXAGON_WIDEBAND.apk" "Searching and Replacing HotwordEnrollmentOKGoogleHEXAGON_WIDEBAND.apk.."
-        rm -rf ./${portOKGoogle}/*
-        cp -rf ./${baseOKGoogle}/* ${portOKGoogle}/
-    else
-        if [ -d "${baseOKGoogle}" ] && [ ! -d "${portOKGoogle}" ];then
-            blue "未找到HotwordEnrollmentOKGoogleHEXAGON_WIDEBAND.apk，替换为原包" "HotwordEnrollmentOKGoogleHEXAGON_WIDEBAND.apk is missing, copying from base..."
-            cp -rf ${baseOKGoogle} build/portrom/images/product/priv-app/
-        fi
-    fi
+    #baseOKGoogle=$(find build/baserom/images/product/ -type d -name "HotwordEnrollmentOKGoogleHEXAGON*")
+    #portOKGoogle=$(find build/portrom/images/product/ -type d -name "HotwordEnrollmentOKGoogleHEXAGON*")
+    #if [ -d "${baseOKGoogle}" ] && [ -d "${portOKGoogle}" ];then
+    #    yellow "查找并替换HotwordEnrollmentOKGoogleHEXAGON_WIDEBAND.apk" "Searching and Replacing HotwordEnrollmentOKGoogleHEXAGON_WIDEBAND.apk.."
+    #    rm -rf ./${portOKGoogle}/*
+    #    cp -rf ./${baseOKGoogle}/* ${portOKGoogle}/
+    #else
+    #    if [ -d "${baseOKGoogle}" ] && [ ! -d "${portOKGoogle}" ];then
+    #        blue "未找到HotwordEnrollmentOKGoogleHEXAGON_WIDEBAND.apk，替换为原包" "HotwordEnrollmentOKGoogleHEXAGON_WIDEBAND.apk is missing, copying from base..."
+    #        cp -rf ${baseOKGoogle} build/portrom/images/product/priv-app/
+    #    fi
+    #fi
 
 else
     yellow "删除多余的App" "Debloating..." 
