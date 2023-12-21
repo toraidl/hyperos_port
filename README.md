@@ -34,7 +34,8 @@
 - 等你发现
 
 ## 说明
-- 以上均基于小米10正式版(V14.0.4.0.TJBCNXM)测试
+- 以上CN ROM均基于小米10正式版(V14.0.4.0.TJBCNXM)底包
+- 欧版基于最新xiaomi.eu官方的最新MIUI14底包
 
 ## NFC
 关于NFC，Android13的底包，可以复制项目devices/umi/system/system/app/NQNfcNci/NQNfcNci.apk，devices/umi/overlay/system_ext/framework/com.nxp.nfc.nq.jar和devices/umi/overlay/system_ext/framework/com.xiaomi.nfc.jar 到你想要移植的机型对应目录中。
