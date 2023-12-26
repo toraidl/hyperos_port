@@ -15,7 +15,7 @@ elif [ "$LANG" = "zh_CN.UTF-8" ];then
 	echo 2.双清刷入
 	echo
 	read -p "请选择(默认选择1,回车执行):" input
-if [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
+elif [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
 	echo
 	echo 1.保留數據刷入
 	echo
@@ -46,7 +46,7 @@ else
 	    echo fastboot已安装
 	elif [ "$LANG" = "zh_CN.UTF-8" ];then
 	    echo fastboot已安装
-	if [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
+	elif [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
 	    echo fastboot已安裝
 	else
 	    echo fastboot already installed
@@ -70,7 +70,7 @@ else
 	    echo zstd已安装
 	elif [ "$LANG" = "zh_CN.UTF-8" ];then
 	    echo zstd已安装
-	if [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
+	elif [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
 	    echo zstd已安裝
 	else
 	    echo zstd already installed
@@ -82,7 +82,7 @@ if [ -f "super.zst" ];then
 	    echo 正在解压super镜像,耐心等待
 	elif [ "$LANG" = "zh_CN.UTF-8" ];then
 	    echo 正在解压super镜像,耐心等待
-	if [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
+	elif [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
 	    echo 正在解壓super鏡像，耐心等待
 	else
 	    echo Extracting the super image, wait patiently
@@ -93,7 +93,7 @@ if [ -f "super.zst" ];then
 		    echo 转换失败,2s后退出程序
 		elif [ "$LANG" = "zh_CN.UTF-8" ];then
 		    echo 转换失败,2s后退出程序
-		if [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
+		elif [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
 		    echo 轉換失敗，2s後退出程式
 		else
 		    echo Conversion failed, exit the program after 2s
@@ -122,7 +122,7 @@ elif [ "$input" -eq "2" ];then
 	    echo 正在双清系统,耐心等待
 	elif [ "$LANG" = "zh_CN.UTF-8" ];then
 	    echo 正在双清系统,耐心等待
-	if [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
+	elif [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
 	    echo 正在雙清系統，耐心等待
 	else
 	    echo Wiping data without data/media/, please wait patiently
@@ -137,7 +137,7 @@ if [ "$LANG" = "C.UTF-8" ];then
 	echo 设置活动分区为 'a'。可能需要一些时间。请勿手动重新启动或拔掉数据线，否则可能导致设备变砖。
 elif [ "$LANG" = "zh_CN.UTF-8" ];then
 	echo 设置活动分区为 'a'。可能需要一些时间。请勿手动重新启动或拔掉数据线，否则可能导致设备变砖。
-if [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
+elif [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
 	echo 開始將活動分區設置為 'a'。這可能需要一些時間。請勿手動重新啟動或拔掉數據線，否則可能導致設備無法響應。
 else
 	echo Starting the process to set the active slot to 'a.' This may take some time. Please refrain from manually restarting or unplugging the data cable, as doing so could result in the device becoming unresponsive.
@@ -151,7 +151,7 @@ if [ "$LANG" = "C.UTF-8" ];then
 	echo 刷机完成,若手机长时间未重启请手动重启,按任意键退出
 elif [ "$LANG" = "zh_CN.UTF-8" ];then
 	echo 刷机完成,若手机长时间未重启请手动重启,按任意键退出
-if [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
+elif [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
 	echo 刷機完成，若手機長時間未重啓請手動重啓，按任意鍵退出
 else
 	echo Flash completed. If the phone does not restart for an extended period, please manually restart. Press any key to exit.
