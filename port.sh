@@ -659,12 +659,6 @@ else
         patch_smali "framework.jar" "Build.smali" ".method public static isBuildConsistent()Z" ".method public static isBuildConsistent()Z \n\n\t.registers 1 \n\n\tconst\/4 v0,0x1\n\n\treturn v0\n.end method\n\n.method public static isBuildConsistent_bak()Z"
     fi
 
-    blue "触控优化" "Touch optimization"
-    echo "ro.surface_flinger.use_content_detection_for_refresh_rate=true" >> build/portrom/images/vendor/default.prop
-    echo "ro.surface_flinger.set_idle_timer_ms=2147483647" >> build/portrom/images/vendor/default.prop
-    echo "ro.surface_flinger.set_touch_timer_ms=2147483647" >> build/portrom/images/vendor/default.prop
-    echo "ro.surface_flinger.set_display_power_timer_ms=2147483647" >> build/portrom/images/vendor/default.prop
-
     APKTOOL="java -jar $work_dir/bin/apktool/apktool.jar"
     mkdir -p tmp/
     blue "开始移除 Android 签名校验" "Disalbe Android 14 Apk Signature Verfier"
@@ -1066,29 +1060,64 @@ fi
 blue "正在压缩 super.img" "Comprising super.img"
 zstd --rm build/portrom/images/super.img -o build/portrom/images/super.zst
 mkdir -p out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
+mkdir -p out/${os_type}_${device_code}_${port_rom_version}/bin/windows/
 
 blue "正在生成刷机脚本" "Generating flashing script"
 if [[ "$is_ab_device" == false ]];then
 
     mv -f build/portrom/images/super.zst out/${os_type}_${device_code}_${port_rom_version}/
     #firmware
+    cp -rf bin/flash/platform-tools-windows/* out/${os_type}_${device_code}_${port_rom_version}/bin/windows/
+    cp -rf bin/flash/mac_linux_flash_script.sh out/${os_type}_${device_code}_${port_rom_version}/
+    cp -rf bin/flash/windows_flash_script.bat out/${os_type}_${device_code}_${port_rom_version}/
+    sed -i "s/_ab//g" out/${os_type}_${device_code}_${port_rom_version}/mac_linux_flash_script.sh
+    sed -i "s/_ab//g" out/${os_type}_${device_code}_${port_rom_version}/windows_flash_script.bat
+    sed -i '/^# SET_ACTION_SLOT_A_BEGIN$/,/^# SET_ACTION_SLOT_A_END$/d' out/${os_type}_${device_code}_${port_rom_version}/mac_linux_flash_script.sh
+    sed -i '/^REM SET_ACTION_SLOT_A_BEGIN$/,/^REM SET_ACTION_SLOT_A_END$/d' out/${os_type}_${device_code}_${port_rom_version}/windows_flash_script.bat
+
     if [ -d build/baserom/firmware-update ];then
         mkdir -p out/${os_type}_${device_code}_${port_rom_version}/firmware-update
         cp -rf build/baserom/firmware-update/*  out/${os_type}_${device_code}_${port_rom_version}/firmware-update
+
+         for fwimg in $(ls out/${os_type}_${device_code}_${port_rom_version}/firmware-update | grep -v "cust");do
+            if [[ ${fwimg} == "uefi_sec.mbn" ]];then
+                part="uefisecapp"
+            elif [[ ${fwimg} == "qupv3fw.elf" ]];then
+                part="qupfw"
+            elif [[ ${fwimg} == "NON-HLOS.bin" ]];then
+                part="modem"
+            elif [[ ${fwimg} == "km4.mbn" ]];then
+                part="keymaster"
+            elif [[ ${fwimg} == "BTFM.bin" ]];then
+                part="bluetooth"
+            elif [[ ${fwimg} == "dspso.bin" ]];then
+                part="dsp"
+            else
+                part=${fwimg%.*}                
+            fi
+            sed -i "/# firmware/a fastboot flash ${part} firmware-update/${fwimg}" out/${os_type}_${device_code}_${port_rom_version}/mac_linux_flash_script.sh
+            sed -i "/REM firmware/a bin\\\windows\\\fastboot.exe flash ${part} %~dp0firmware-update\/${fwimg}" out/${os_type}_${device_code}_${port_rom_version}/windows_flash_script.bat
+         done
+
     fi
-        # disable vbmeta
+
+    #disable vbmeta
     for img in $(find out/${os_type}_${device_code}_${port_rom_version}/firmware-update -type f -name "vbmeta*.img");do
         python3 bin/patch-vbmeta.py ${img} > /dev/null 2>&1
     done
-    mv -f build/baserom/boot.img out/${os_type}_${device_code}_${port_rom_version}/boot_official.img
+    cp -f build/baserom/boot.img out/${os_type}_${device_code}_${port_rom_version}/boot_official.img
     cp -rf bin/flash/a-only/update-binary out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
     cp -rf bin/flash/zstd out/${os_type}_${device_code}_${port_rom_version}/META-INF/
     custom_bootimg_file=$(find devices/$base_rom_code/ -type f -name "boot*.img")
+
     if [[ -f "$custom_bootimg_file" ]];then
         bootimg=$(basename "$custom_bootimg_file")
         sed -i "s/boot_tv.img/$bootimg/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+        sed -i "s/boot_tv.img/$bootimg/g" out/${os_type}_${device_code}_${port_rom_version}/windows_flash_script.bat
+        sed -i "s/boot_tv.img/$bootimg/g" out/${os_type}_${device_code}_${port_rom_version}/mac_linux_flash_script.sh
         cp -rf $custom_bootimg_file out/${os_type}_${device_code}_${port_rom_version}/
     fi
+    busybox unix2dos out/${os_type}_${device_code}_${port_rom_version}/windows_flash_script.bat
     sed -i "s/portversion/${port_rom_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
     sed -i "s/baseversion/${base_rom_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
     sed -i "s/andVersion/${port_android_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
@@ -1104,20 +1133,20 @@ else
    
     cp -rf bin/flash/zstd out/${os_type}_${device_code}_${port_rom_version}/META-INF/
     for fwImg in $(ls out/${os_type}_${device_code}_${port_rom_version}/images/ |cut -d "." -f 1 |grep -vE "super|cust|preloader");do
-        if [ "$(echo $fwImg |grep vbmeta)" != "" ];then
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_b\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_a\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+        if [ "$(echo ${fwimg} |grep vbmeta)" != "" ];then
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "${fwimg}"_b images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "${fwimg}"_a images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "${fwimg}"_b images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "${fwimg}"_a images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/#firmware/a package_extract_file \"images/"${fwimg}".img\" \"/dev/block/bootdevice/by-name/"${fwimg}"_b\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+            sed -i "/#firmware/a package_extract_file \"images/"${fwimg}".img\" \"/dev/block/bootdevice/by-name/"${fwimg}"_a\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
         else
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_b\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_a\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "${fwimg}"_b images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "${fwimg}"_a images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "${fwimg}"_b images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "${fwimg}"_a images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/#firmware/a package_extract_file \"images/"${fwimg}".img\" \"/dev/block/bootdevice/by-name/"${fwimg}"_b\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+            sed -i "/#firmware/a package_extract_file \"images/"${fwimg}".img\" \"/dev/block/bootdevice/by-name/"${fwimg}"_a\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
         fi
     done
 
