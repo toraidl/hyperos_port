@@ -2,7 +2,7 @@
 cls
 reg query "HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Nls\Language" /v InstallLanguage|find "0804">nul&& set LANG=Chinese
 if "%LANG%"=="Chinese" (
-    TITLE windows åˆ·æœºè„šæœ¬ [è¯·å‹¿é€‰ä¸­çª—å£ï¼Œå¡ä½æŒ‰å³é”®æˆ–å›è½¦æˆ–æ”¾å¤§ç¼©å°çª—å£æ¢å¤]
+    TITLE windows Ë¢»ú½Å±¾ [ÇëÎğÑ¡ÖĞ´°¿Ú£¬¿¨×¡°´ÓÒ¼ü»ò»Ø³µ»ò·Å´óËõĞ¡´°¿Ú»Ö¸´]
 ) else (
     TITLE Windows Flash Script
 )
@@ -10,14 +10,14 @@ color 3f
 echo.
 if exist "super.zst" (
     if "%LANG%"=="Chinese" (
-        echo. æ­£åœ¨è§£å‹superé•œåƒ,è€å¿ƒç­‰å¾…
+        echo. ÕıÔÚ½âÑ¹super¾µÏñ,ÄÍĞÄµÈ´ı
     ) else (
         echo. Extracting the super image, wait patiently
     )
     bin\windows\zstd.exe --rm -d super.zst -o super.img
     if not "%errorlevel%" == "0" (
         if "%LANG%"=="Chinese" (
-            echo. è½¬æ¢å¤±è´¥,æŒ‰ä»»æ„é”®é€€å‡º
+            echo. ×ª»»Ê§°Ü,°´ÈÎÒâ¼üÍË³ö
         ) else (
             echo. Conversion failed. Press any key to exit
         )
@@ -28,11 +28,11 @@ if exist "super.zst" (
 
 if "%LANG%"=="Chinese" (
     echo.
-    echo. 1. ä¿ç•™æ•°æ®åˆ·å…¥
+    echo. 1. ±£ÁôÊı¾İË¢Èë
     echo.
-    echo. 2. åŒæ¸…åˆ·å…¥
+    echo. 2. Ë«ÇåË¢Èë
     echo.
-    set /p input=è¯·é€‰æ‹©-é»˜è®¤é€‰æ‹©1,å›è½¦æ‰§è¡Œ:
+    set /p input=ÇëÑ¡Ôñ-Ä¬ÈÏÑ¡Ôñ1,»Ø³µÖ´ĞĞ:
 ) else (
     echo.
     echo. 1. Preserve user data during flashing
@@ -44,7 +44,7 @@ if "%LANG%"=="Chinese" (
 
 if exist boot_tv.img (
     if "%LANG%"=="Chinese" (
-	    echo. åˆ·å…¥ç¬¬ä¸‰æ–¹boot_tv.img
+	    echo. Ë¢ÈëµÚÈı·½boot_tv.img
         
     ) else (
         echo. Flashing custom boot.img
@@ -63,7 +63,7 @@ ping 127.0.0.1 -n 5 >nul 2>nul
 bin\windows\fastboot.exe flash super %~dp0super.img
 if "%input%" == "2" (
 	if "%LANG%"=="Chinese" (
-	    echo. æ­£åœ¨åŒæ¸…ç³»ç»Ÿ,è€å¿ƒç­‰å¾…
+	    echo. ÕıÔÚË«ÇåÏµÍ³,ÄÍĞÄµÈ´ı
     ) else (
         echo. Wiping data without wiping /data/media/, please wait patiently
     ) 
@@ -73,7 +73,7 @@ if "%input%" == "2" (
 
 REM SET_ACTION_SLOT_A_BEGIN
 if "%LANG%"=="Chinese" (
-	echo. è®¾ç½®æ´»åŠ¨åˆ†åŒºä¸º 'a'ã€‚å¯èƒ½éœ€è¦ä¸€äº›æ—¶é—´ã€‚è¯·å‹¿æ‰‹åŠ¨é‡æ–°å¯åŠ¨æˆ–æ‹”æ‰æ•°æ®çº¿ï¼Œå¦åˆ™å¯èƒ½å¯¼è‡´è®¾å¤‡å˜ç –ã€‚
+	echo. ÉèÖÃ»î¶¯·ÖÇøÎª 'a'¡£¿ÉÄÜĞèÒªÒ»Ğ©Ê±¼ä¡£ÇëÎğÊÖ¶¯ÖØĞÂÆô¶¯»ò°ÎµôÊı¾İÏß£¬·ñÔò¿ÉÄÜµ¼ÖÂÉè±¸±ä×©¡£
 ) else (
     echo. Starting the process to set the active slot to 'a.' This may take some time. Please refrain from manually restarting or unplugging the data cable, as doing so could result in the device becoming unresponsive.
 )
@@ -84,7 +84,7 @@ REM SET_ACTION_SLOT_A_END
 bin\windows\fastboot.exe reboot
 
 if "%LANG%"=="Chinese" (
-    echo. åˆ·æœºå®Œæˆ,è‹¥æ‰‹æœºé•¿æ—¶é—´æœªé‡å¯è¯·æ‰‹åŠ¨é‡å¯,æŒ‰ä»»æ„é”®é€€å‡º
+    echo. Ë¢»úÍê³É,ÈôÊÖ»ú³¤Ê±¼äÎ´ÖØÆôÇëÊÖ¶¯ÖØÆô,°´ÈÎÒâ¼üÍË³ö
 ) else (
     echo. Flash completed. If the phone does not restart for an extended period, please manually restart. Press any key to exit.
 )
