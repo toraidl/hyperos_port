@@ -31,6 +31,8 @@ error() {
             echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$1"\033[0m"
         elif [[ "$LANG" == en* ]]; then
             echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$2"\033[0m"
+        else
+            echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$2"\033[0m"
         fi
     elif [ "$#" -eq 1 ]; then
         echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$1"\033[0m"
@@ -45,6 +47,8 @@ yellow() {
         if [[ "$LANG" == zh_CN* ]]; then
             echo -e \[$(date +%m%d-%T)\] "\033[1;33m"$1"\033[0m"
         elif [[ "$LANG" == en* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;33m"$2"\033[0m"
+        else
             echo -e \[$(date +%m%d-%T)\] "\033[1;33m"$2"\033[0m"
         fi
     elif [ "$#" -eq 1 ]; then
@@ -61,6 +65,8 @@ blue() {
             echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$1"\033[0m"
         elif [[ "$LANG" == en* ]]; then
             echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$2"\033[0m"
+        else
+            echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$2"\033[0m"
         fi
     elif [ "$#" -eq 1 ]; then
         echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$1"\033[0m"
@@ -74,6 +80,8 @@ green() {
         if [[ "$LANG" == zh_CN* ]]; then
             echo -e \[$(date +%m%d-%T)\] "\033[1;32m"$1"\033[0m"
         elif [[ "$LANG" == en* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;32m"$2"\033[0m"
+        else
             echo -e \[$(date +%m%d-%T)\] "\033[1;32m"$2"\033[0m"
         fi
     elif [ "$#" -eq 1 ]; then
