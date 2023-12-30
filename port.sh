@@ -985,9 +985,9 @@ for pname in ${super_list};do
         fi
         case $pname in
             mi_ext) addSize=4194304 ;;
-            odm) addSize=134217728 ;;
-            system|vendor|system_ext) addSize=154217728 ;;
-            product) addSize=204217728 ;;
+            odm) addSize=34217728 ;;
+            system|vendor|system_ext) addSize=84217728 ;;
+            product) addSize=104217728 ;;
             *) addSize=8554432 ;;
         esac
         if [ "$pack_type" = "EXT" ];then
