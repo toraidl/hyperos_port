@@ -14,6 +14,7 @@
 ## 测试机型及版本
 - 测试机型小米10/Pro/Ultra MIUI 14最新版
 - 测试版本 小米12、小米13/Pro/Ultra、小米14/Pro HyperOS1.0 正式版和开发版 官方OTA包 & xiaomi.eu官改包
+- 测试版本 小米平板5 Pro 12.4（DAGU）
 
 
 ## 正常工作
@@ -37,8 +38,10 @@
 - 以上CN ROM均基于小米10正式版(V14.0.4.0.TJBCNXM)底包
 - 欧版基于最新xiaomi.eu官方的最新MIUI14底包
 
-## NFC
-关于NFC，Android13的底包，可以复制项目devices/umi/system/system/app/NQNfcNci/NQNfcNci.apk，devices/umi/overlay/system_ext/framework/com.nxp.nfc.nq.jar和devices/umi/overlay/system_ext/framework/com.xiaomi.nfc.jar 到你想要移植的机型对应目录中。
+## 平板系统
+移植平板HyperOS到手机，需要从其他正常手机HyperOS机型复制下面的软件
+Contacts MIUIAod MiuiHome MIUISecurityCenter  Mms  MIUIContentExtension  MIUIPackageInstaller
+
 
 ## 如何使用
 - 在WSL、ubuntu、deepin等Linux下
