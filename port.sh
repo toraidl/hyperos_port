@@ -31,6 +31,8 @@ error() {
             echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$1"\033[0m"
         elif [[ "$LANG" == en* ]]; then
             echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$2"\033[0m"
+        else
+            echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$2"\033[0m"
         fi
     elif [ "$#" -eq 1 ]; then
         echo -e \[$(date +%m%d-%T)\] "\033[1;31m"$1"\033[0m"
@@ -45,6 +47,8 @@ yellow() {
         if [[ "$LANG" == zh_CN* ]]; then
             echo -e \[$(date +%m%d-%T)\] "\033[1;33m"$1"\033[0m"
         elif [[ "$LANG" == en* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;33m"$2"\033[0m"
+        else
             echo -e \[$(date +%m%d-%T)\] "\033[1;33m"$2"\033[0m"
         fi
     elif [ "$#" -eq 1 ]; then
@@ -61,6 +65,8 @@ blue() {
             echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$1"\033[0m"
         elif [[ "$LANG" == en* ]]; then
             echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$2"\033[0m"
+        else
+            echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$2"\033[0m"
         fi
     elif [ "$#" -eq 1 ]; then
         echo -e \[$(date +%m%d-%T)\] "\033[1;34m"$1"\033[0m"
@@ -74,6 +80,8 @@ green() {
         if [[ "$LANG" == zh_CN* ]]; then
             echo -e \[$(date +%m%d-%T)\] "\033[1;32m"$1"\033[0m"
         elif [[ "$LANG" == en* ]]; then
+            echo -e \[$(date +%m%d-%T)\] "\033[1;32m"$2"\033[0m"
+        else
             echo -e \[$(date +%m%d-%T)\] "\033[1;32m"$2"\033[0m"
         fi
     elif [ "$#" -eq 1 ]; then
@@ -186,6 +194,13 @@ repackext4=$(grep "repack_with_ext4" bin/port_config |cut -d '=' -f 2)
 brightness_fix_method=$(grep "brightness_fix_method" bin/port_config |cut -d '=' -f 2)
 
 compatible_matrix_matches_enabled=$(grep "compatible_matrix_matches_check" bin/port_config | cut -d '=' -f 2)
+
+if [[ ${repackext4} == true ]]; then
+    pack_type = EXT
+else
+    pack_type = EROFS
+fi
+
 
 # 检查为本地包还是链接
 if [ ! -f "${baserom}" ] && [ "$(echo $baserom |grep http)" != "" ];then
@@ -332,7 +347,6 @@ fi
 for part in system system_dlkm system_ext product product_dlkm mi_ext ;do
     if [[ -f build/baserom/images/${part}.img ]];then 
         if [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "ext" ]];then
-            pack_type=EXT
             blue "正在分解底包 ${part}.img [ext]" "Extracing ${part}.img [ext] from BASEROM"
             sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img >/dev/null 2>&1
             blue "分解底包 [${part}.img] 完成" "BASEROM ${part}.img [ext] extracted."
@@ -605,6 +619,23 @@ if [ ! -f "${port_vndk}" ]; then
     cp -rf "${base_vndk}" "build/portrom/images/system_ext/apex/"
 fi
 
+if [ $(grep -c "sm8250" "build/portrom/images/vendor/build.prop") -ne 0 ]; then
+    ## Fix the drop frame issus
+    echo "ro.surface_flinger.enable_frame_rate_override=false" >> build/portrom/images/vendor/build.prop
+
+    sed -i "s/persist.sys.miui_animator_sched.bigcores=.*/persist.sys.miui_animator_sched.bigcores=4-6/" build/portrom/images/product/etc/build.prop
+    sed -i "s/persist.sys.miui_animator_sched.big_prime_cores=.*/persist.sys.miui_animator_sched.big_prime_cores=4-7/" build/portrom/images/product/etc/build.prop
+
+    {
+        echo "persist.sys.miui.sf_cores=4-7"
+        echo "persist.sys.minfree_def=73728,92160,110592,154832,482560,579072" 
+        echo "persist.sys.minfree_6g=73728,92160,110592,258048,663552,903168" 
+        echo "persist.sys.minfree_8g=73728,92160,110592,387072,1105920,1451520"
+        echo "persist.vendor.display.miui.composer_boost=4-7"
+    }  >> build/portrom/images/product/etc/build.prop
+
+fi
+
 #解决开机报错问题
 targetVintf=$(find build/portrom/images/system_ext/etc/vintf -type f -name "manifest.xml")
 if [ -f "$targetVintf" ]; then
@@ -658,12 +689,6 @@ else
     if [[ "$compatible_matrix_matches_enabled" == "false" ]]; then
         patch_smali "framework.jar" "Build.smali" ".method public static isBuildConsistent()Z" ".method public static isBuildConsistent()Z \n\n\t.registers 1 \n\n\tconst\/4 v0,0x1\n\n\treturn v0\n.end method\n\n.method public static isBuildConsistent_bak()Z"
     fi
-
-    blue "触控优化" "Touch optimization"
-    echo "ro.surface_flinger.use_content_detection_for_refresh_rate=true" >> build/portrom/images/vendor/default.prop
-    echo "ro.surface_flinger.set_idle_timer_ms=2147483647" >> build/portrom/images/vendor/default.prop
-    echo "ro.surface_flinger.set_touch_timer_ms=2147483647" >> build/portrom/images/vendor/default.prop
-    echo "ro.surface_flinger.set_display_power_timer_ms=2147483647" >> build/portrom/images/vendor/default.prop
 
     APKTOOL="java -jar $work_dir/bin/apktool/apktool.jar"
     mkdir -p tmp/
@@ -801,6 +826,11 @@ for i in $(find build/portrom/images -type f -name "build.prop");do
         sed -i "s/ro.product.mod_device=.*/ro.product.mod_device=${base_rom_code}/g" ${i}
         sed -i "s/ro.build.host=.*/ro.build.host=${build_host}/g" ${i}
     fi
+    sed -i "s/ro.build.characteristics=tablet/ro.build.characteristics=nosdcard/g" ${i}
+    sed -i "s/ro.config.miui_multi_window_switch_enable=true/ro.config.miui_multi_window_switch_enable=false/g" ${i}
+    sed -i "s/ro.config.miui_desktop_mode_enabled=true/ro.config.miui_desktop_mode_enabled=false/g" ${i}
+    sed -i "s/ro.miui.density.primaryscale=1.15/ro.miui.density.primaryscale=1/g" ${i}
+    sed -i "/persist.wm.extensions.enabled=true/d" ${i}
 done
 
 #sed -i -e '$a\'$'\n''persist.adb.notify=0' build/portrom/images/system/system/build.prop
@@ -875,29 +905,113 @@ else
   millet_netlink_version=29
   update_netlink "$millet_netlink_version" "build/portrom/images/product/etc/build.prop"
 fi
+# add advanced texture
+if ! is_property_exists persist.sys.background_blur_supported build/portrom/images/product/etc/build.prop; then
+    echo "persist.sys.background_blur_supported=true" >> build/portrom/images/product/etc/build.prop
+    echo "persist.sys.background_blur_version=2" >> build/portrom/images/product/etc/build.prop
+else
+    sed -i "s/persist.sys.background_blur_supported=.*/persist.sys.background_blur_supported=true/" build/portrom/images/product/etc/build.prop
+fi
 
 #自定义替换
+
+if [[ ${port_rom_code} == "dagu_cn" ]];then
+    echo "ro.control_privapp_permissions=log" >> build/portrom/images/product/etc/build.prop
+    
+    rm -rf build/portrom/images/product/overlay/MiuiSystemUIResOverlay.apk
+    rm -rf build/portrom/images/product/overlay/SettingsRroDeviceSystemUiOverlay.apk
+
+    targetAospFrameworkTelephonyResOverlay=$(find build/portrom/images/product -type f -name "AospFrameworkTelephonyResOverlay.apk")
+    if [[ -f $targetAospFrameworkTelephonyResOverlay ]]; then
+        mkdir tmp/  
+        filename=$(basename $targetAospFrameworkTelephonyResOverlay)
+        yellow "Enable Phone Call and SMS feature in Pad port."
+        targetDir=$(echo "$filename" | sed 's/\..*$//')
+        bin/apktool/apktool d $targetAospFrameworkTelephonyResOverlay -o tmp/$targetDir -f > /dev/null 2>&1
+        for xml in $(find tmp/$targetDir -type f -name "*.xml");do
+            sed -i 's|<bool name="config_sms_capable">false</bool>|<bool name="config_sms_capable">true</bool>|' $xml
+            sed -i 's|<bool name="config_voice_capable">false</bool>|<bool name="config_voice_capable">true</bool>|' $xml
+        done
+        bin/apktool/apktool b tmp/$targetDir -o tmp/$filename > /dev/null 2>&1 || error "apktool 打包失败" "apktool mod failed"
+        cp -rfv tmp/$filename $targetAospFrameworkTelephonyResOverlay
+        #rm -rf tmp
+    fi
+    blue "Replace Pad Software"
+    if [[ -d devices/pad/overlay/product/priv-app ]];then
+
+        for app in $(ls devices/pad/overlay/product/priv-app); do
+            
+            sourceApkFolder=$(find devices/pad/overlay/product/priv-app -type d -name *"$app"* )
+            targetApkFolder=$(find build/portrom/images/product/priv-app -type d -name *"$app"* )
+            if  [[ -d $targetApkFolder ]];then
+                    rm -rfv $targetApkFolder
+                    cp -rfv $sourceApkFolder build/portrom/images/product/priv-app
+            else
+                cp -rfv $sourceApkFolder build/portrom/images/product/priv-app
+            fi
+
+        done
+    fi
+
+    if [[ -d devices/pad/overlay/product/app ]];then
+        for app in $(ls devices/pad/overlay/product/app); do
+            targetAppfolder = $(find build/portrom/images/product/app -type d -name *"$app"* )
+            if [ -d $targetAppfolder ]; then
+                rm -rfv $targetAppfolder
+            fi
+            cp -rfv devices/pad/overlay/product/app/$app build/portrom/images/product/app/
+        done
+    fi
+
+    if [[ -d devices/pad/overlay/system_ext ]]; then
+        cp -rfv devices/pad/overlay/system_ext/* build/portrom/images/system_ext/
+    fi
+
+    blue "Add permissions" 
+    sed -i 's|</permissions>|\t<privapp-permissions package="com.android.mms"> \n\t\t<permission name="android.permission.WRITE_APN_SETTINGS" />\n\t\t<permission name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />\n\t\t<permission name="android.permission.READ_PRIVILEGED_PHONE_STATE" />\n\t\t<permission name="android.permission.CALL_PRIVILEGED" /> \n\t\t<permission name="android.permission.GET_ACCOUNTS_PRIVILEGED" /> \n\t\t<permission name="android.permission.WRITE_SECURE_SETTINGS" />\n\t\t<permission name="android.permission.SEND_SMS_NO_CONFIRMATION" /> \n\t\t<permission name="android.permission.SEND_RESPOND_VIA_MESSAGE" />\n\t\t<permission name="android.permission.UPDATE_APP_OPS_STATS" />\n\t\t<permission name="android.permission.MODIFY_PHONE_STATE" /> \n\t\t<permission name="android.permission.WRITE_MEDIA_STORAGE" /> \n\t\t<permission name="android.permission.MANAGE_USERS" /> \n\t\t<permission name="android.permission.INTERACT_ACROSS_USERS" />\n\t\t <permission name="android.permission.SCHEDULE_EXACT_ALARM" /> \n\t</privapp-permissions>\n</permissions>|'  build/portrom/images/product/etc/permissions/privapp-permissions-product.xml
+    sed -i 's|</permissions>|\t<privapp-permissions package="com.miui.contentextension">\n\t\t<permission name="android.permission.WRITE_SECURE_SETTINGS" />\n\t</privapp-permissions>\n</permissions>|' build/portrom/images/product/etc/permissions/privapp-permissions-product.xml
+
+fi
+
 if [[ -d "devices/common" ]];then
     commonCamera=$(find devices/common -type f -name "MiuiCamera.apk")
     targetCamera=$(find build/portrom/images/product -type d -name "MiuiCamera")
     bootAnimationZIP=$(find devices/common -type f -name "bootanimation_${base_rom_density}.zip")
     targetAnimationZIP=$(find build/portrom/images/product -type f -name "bootanimation.zip")
+    MiLinkCirculateMIUI15=$(find devices/common -type d -name *"MiLinkCirculate"* )
+    targetMiLinkCirculateMIUI15=$(find build/portrom/images/product -type d -name *"MiLinkCirculate"*)
+    targetNQNfcNci=$(find build/portrom/images/system/system build/portrom/images/product build/portrom/images/system_ext -type d -name "NQNfcNci*")
+
+    if [[ $base_android_version == "13" ]];then
+        rm -rf $targetNQNfcNci
+        cp -rfv devices/common/overlay/system/* build/portrom/images/system/
+        cp -rfv devices/common/overlay/system_ext/framework/* build/portrom/images/system_ext/framework/
+
+    fi
     if [[ $base_android_version == "13" ]] && [[ -f $commonCamera ]];then
         yellow "替换相机为10S HyperOS A13 相机，MI10可用, thanks to 酷安 @PedroZ" "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
-        rm -rf $targetCamera/*
+        if [[ -d $targetCamera ]];then
+            rm -rf $targetCamera/*
+        fi
         cp -rfv $commonCamera $targetCamera
     fi
     if [[ -f "$bootAnimationZIP" ]];then
         yellow "替换开机第二屏动画" "Repacling bootanimation.zip"
         cp -rfv $bootAnimationZIP $targetAnimationZIP
     fi
+
+    if [[ -d "$targetMiLinkCirculateMIUI15" ]]; then
+        rm -rf $targetMiLinkCirculateMIUI15/*
+        cp -rfv $MiLinkCirculateMIUI15 $targetMiLinkCirculateMIUI15
+    else
+        mkdir -p build/portrom/images/product/app/MiLinkCirculateMIUI15
+        cp -rfv $MiLinkCirculateMIUI15 build/portrom/images/product/app/
+    fi
 fi
 
 #Devices/机型代码/overaly 按照镜像的目录结构，可直接替换目标。
 if [[ -d "devices/${base_rom_code}/overlay" ]]; then
-    targetNFCFolder=$(find build/portrom/images/system/system build/portrom/images/product build/portrom/images/system_ext -type d -name "NQNfcNci*")
-    rm -rf $targetNFCFolder
-    cp -rfv devices/${base_rom_code}/overlay/* build/portrom/images/
+    blue "replace files in here"
 else
     yellow "devices/${base_rom_code}/overlay 未找到" "devices/${base_rom_code}/overlay not found" 
 fi
@@ -966,9 +1080,9 @@ for pname in ${super_list};do
         fi
         case $pname in
             mi_ext) addSize=4194304 ;;
-            odm) addSize=134217728 ;;
-            system|vendor|system_ext) addSize=154217728 ;;
-            product) addSize=204217728 ;;
+            odm) addSize=34217728 ;;
+            system|vendor|system_ext) addSize=84217728 ;;
+            product) addSize=104217728 ;;
             *) addSize=8554432 ;;
         esac
         if [ "$pack_type" = "EXT" ];then
@@ -1066,29 +1180,64 @@ fi
 blue "正在压缩 super.img" "Comprising super.img"
 zstd --rm build/portrom/images/super.img -o build/portrom/images/super.zst
 mkdir -p out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
+mkdir -p out/${os_type}_${device_code}_${port_rom_version}/bin/windows/
 
 blue "正在生成刷机脚本" "Generating flashing script"
 if [[ "$is_ab_device" == false ]];then
 
     mv -f build/portrom/images/super.zst out/${os_type}_${device_code}_${port_rom_version}/
     #firmware
+    cp -rf bin/flash/platform-tools-windows/* out/${os_type}_${device_code}_${port_rom_version}/bin/windows/
+    cp -rf bin/flash/mac_linux_flash_script.sh out/${os_type}_${device_code}_${port_rom_version}/
+    cp -rf bin/flash/windows_flash_script.bat out/${os_type}_${device_code}_${port_rom_version}/
+    sed -i "s/_ab//g" out/${os_type}_${device_code}_${port_rom_version}/mac_linux_flash_script.sh
+    sed -i "s/_ab//g" out/${os_type}_${device_code}_${port_rom_version}/windows_flash_script.bat
+    sed -i '/^# SET_ACTION_SLOT_A_BEGIN$/,/^# SET_ACTION_SLOT_A_END$/d' out/${os_type}_${device_code}_${port_rom_version}/mac_linux_flash_script.sh
+    sed -i '/^REM SET_ACTION_SLOT_A_BEGIN$/,/^REM SET_ACTION_SLOT_A_END$/d' out/${os_type}_${device_code}_${port_rom_version}/windows_flash_script.bat
+
     if [ -d build/baserom/firmware-update ];then
         mkdir -p out/${os_type}_${device_code}_${port_rom_version}/firmware-update
         cp -rf build/baserom/firmware-update/*  out/${os_type}_${device_code}_${port_rom_version}/firmware-update
+
+         for fwimg in $(ls out/${os_type}_${device_code}_${port_rom_version}/firmware-update | grep -v "cust");do
+            if [[ ${fwimg} == "uefi_sec.mbn" ]];then
+                part="uefisecapp"
+            elif [[ ${fwimg} == "qupv3fw.elf" ]];then
+                part="qupfw"
+            elif [[ ${fwimg} == "NON-HLOS.bin" ]];then
+                part="modem"
+            elif [[ ${fwimg} == "km4.mbn" ]];then
+                part="keymaster"
+            elif [[ ${fwimg} == "BTFM.bin" ]];then
+                part="bluetooth"
+            elif [[ ${fwimg} == "dspso.bin" ]];then
+                part="dsp"
+            else
+                part=${fwimg%.*}                
+            fi
+            sed -i "/# firmware/a fastboot flash ${part} firmware-update/${fwimg}" out/${os_type}_${device_code}_${port_rom_version}/mac_linux_flash_script.sh
+            sed -i "/REM firmware/a bin\\\windows\\\fastboot.exe flash ${part} %~dp0firmware-update\/${fwimg}" out/${os_type}_${device_code}_${port_rom_version}/windows_flash_script.bat
+         done
+
     fi
-        # disable vbmeta
+
+    #disable vbmeta
     for img in $(find out/${os_type}_${device_code}_${port_rom_version}/firmware-update -type f -name "vbmeta*.img");do
         python3 bin/patch-vbmeta.py ${img} > /dev/null 2>&1
     done
-    mv -f build/baserom/boot.img out/${os_type}_${device_code}_${port_rom_version}/boot_official.img
+    cp -f build/baserom/boot.img out/${os_type}_${device_code}_${port_rom_version}/boot_official.img
     cp -rf bin/flash/a-only/update-binary out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
     cp -rf bin/flash/zstd out/${os_type}_${device_code}_${port_rom_version}/META-INF/
     custom_bootimg_file=$(find devices/$base_rom_code/ -type f -name "boot*.img")
+
     if [[ -f "$custom_bootimg_file" ]];then
         bootimg=$(basename "$custom_bootimg_file")
         sed -i "s/boot_tv.img/$bootimg/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+        sed -i "s/boot_tv.img/$bootimg/g" out/${os_type}_${device_code}_${port_rom_version}/windows_flash_script.bat
+        sed -i "s/boot_tv.img/$bootimg/g" out/${os_type}_${device_code}_${port_rom_version}/mac_linux_flash_script.sh
         cp -rf $custom_bootimg_file out/${os_type}_${device_code}_${port_rom_version}/
     fi
+    busybox unix2dos out/${os_type}_${device_code}_${port_rom_version}/windows_flash_script.bat
     sed -i "s/portversion/${port_rom_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
     sed -i "s/baseversion/${base_rom_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
     sed -i "s/andVersion/${port_android_version}/g" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
@@ -1104,20 +1253,20 @@ else
    
     cp -rf bin/flash/zstd out/${os_type}_${device_code}_${port_rom_version}/META-INF/
     for fwImg in $(ls out/${os_type}_${device_code}_${port_rom_version}/images/ |cut -d "." -f 1 |grep -vE "super|cust|preloader");do
-        if [ "$(echo $fwImg |grep vbmeta)" != "" ];then
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_b\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_a\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+        if [ "$(echo ${fwimg} |grep vbmeta)" != "" ];then
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "${fwimg}"_b images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "${fwimg}"_a images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "${fwimg}"_b images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot --disable-verity --disable-verification flash "${fwimg}"_a images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/#firmware/a package_extract_file \"images/"${fwimg}".img\" \"/dev/block/bootdevice/by-name/"${fwimg}"_b\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+            sed -i "/#firmware/a package_extract_file \"images/"${fwimg}".img\" \"/dev/block/bootdevice/by-name/"${fwimg}"_a\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
         else
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_b images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "$fwImg"_a images\/"$fwImg".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_b\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
-            sed -i "/#firmware/a package_extract_file \"images/"$fwImg".img\" \"/dev/block/bootdevice/by-name/"$fwImg"_a\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "${fwimg}"_b images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "${fwimg}"_a images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_update.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "${fwimg}"_b images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/rem/a META-INF\\\platform-tools-windows\\\fastboot flash "${fwimg}"_a images\/"${fwimg}".img" out/${os_type}_${device_code}_${port_rom_version}/flash_and_format.bat
+            sed -i "/#firmware/a package_extract_file \"images/"${fwimg}".img\" \"/dev/block/bootdevice/by-name/"${fwimg}"_b\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
+            sed -i "/#firmware/a package_extract_file \"images/"${fwimg}".img\" \"/dev/block/bootdevice/by-name/"${fwimg}"_a\"" out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/update-binary
         fi
     done
 
