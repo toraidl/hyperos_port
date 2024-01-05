@@ -195,6 +195,13 @@ brightness_fix_method=$(grep "brightness_fix_method" bin/port_config |cut -d '='
 
 compatible_matrix_matches_enabled=$(grep "compatible_matrix_matches_check" bin/port_config | cut -d '=' -f 2)
 
+if [[ ${repackext4} == true ]]; then
+    pack_type = EXT
+else
+    pack_type = EROFS
+fi
+
+
 # 检查为本地包还是链接
 if [ ! -f "${baserom}" ] && [ "$(echo $baserom |grep http)" != "" ];then
     blue "底包为一个链接，正在尝试下载" "Download link detected, start downloding.."
@@ -340,7 +347,6 @@ fi
 for part in system system_dlkm system_ext product product_dlkm mi_ext ;do
     if [[ -f build/baserom/images/${part}.img ]];then 
         if [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "ext" ]];then
-            pack_type=EXT
             blue "正在分解底包 ${part}.img [ext]" "Extracing ${part}.img [ext] from BASEROM"
             sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img >/dev/null 2>&1
             blue "分解底包 [${part}.img] 完成" "BASEROM ${part}.img [ext] extracted."
@@ -820,6 +826,11 @@ for i in $(find build/portrom/images -type f -name "build.prop");do
         sed -i "s/ro.product.mod_device=.*/ro.product.mod_device=${base_rom_code}/g" ${i}
         sed -i "s/ro.build.host=.*/ro.build.host=${build_host}/g" ${i}
     fi
+    sed -i "s/ro.build.characteristics=tablet/ro.build.characteristics=nosdcard/g" ${i}
+    sed -i "s/ro.config.miui_multi_window_switch_enable=true/ro.config.miui_multi_window_switch_enable=false/g" ${i}
+    sed -i "s/ro.config.miui_desktop_mode_enabled=true/ro.config.miui_desktop_mode_enabled=false/g" ${i}
+    sed -i "s/ro.miui.density.primaryscale=1.15/ro.miui.density.primaryscale=1/g" ${i}
+    sed -i "/persist.wm.extensions.enabled=true/d" ${i}
 done
 
 #sed -i -e '$a\'$'\n''persist.adb.notify=0' build/portrom/images/system/system/build.prop
@@ -903,6 +914,65 @@ else
 fi
 
 #自定义替换
+
+if [[ ${port_rom_code} == "dagu_cn" ]];then
+    echo "ro.control_privapp_permissions=log" >> build/portrom/images/product/etc/build.prop
+    
+    rm -rf build/portrom/images/product/overlay/MiuiSystemUIResOverlay.apk
+    rm -rf build/portrom/images/product/overlay/SettingsRroDeviceSystemUiOverlay.apk
+
+    targetAospFrameworkTelephonyResOverlay=$(find build/portrom/images/product -type f -name "AospFrameworkTelephonyResOverlay.apk")
+    if [[ -f $targetAospFrameworkTelephonyResOverlay ]]; then
+        mkdir tmp/  
+        filename=$(basename $targetAospFrameworkTelephonyResOverlay)
+        yellow "Enable Phone Call and SMS feature in Pad port."
+        targetDir=$(echo "$filename" | sed 's/\..*$//')
+        bin/apktool/apktool d $targetAospFrameworkTelephonyResOverlay -o tmp/$targetDir -f > /dev/null 2>&1
+        for xml in $(find tmp/$targetDir -type f -name "*.xml");do
+            sed -i 's|<bool name="config_sms_capable">false</bool>|<bool name="config_sms_capable">true</bool>|' $xml
+            sed -i 's|<bool name="config_voice_capable">false</bool>|<bool name="config_voice_capable">true</bool>|' $xml
+        done
+        bin/apktool/apktool b tmp/$targetDir -o tmp/$filename > /dev/null 2>&1 || error "apktool 打包失败" "apktool mod failed"
+        cp -rfv tmp/$filename $targetAospFrameworkTelephonyResOverlay
+        #rm -rf tmp
+    fi
+    blue "Replace Pad Software"
+    if [[ -d devices/pad/overlay/product/priv-app ]];then
+
+        for app in $(ls devices/pad/overlay/product/priv-app); do
+            
+            sourceApkFolder=$(find devices/pad/overlay/product/priv-app -type d -name *"$app"* )
+            targetApkFolder=$(find build/portrom/images/product/priv-app -type d -name *"$app"* )
+            if  [[ -d $targetApkFolder ]];then
+                    rm -rfv $targetApkFolder
+                    cp -rfv $sourceApkFolder build/portrom/images/product/priv-app
+            else
+                cp -rfv $sourceApkFolder build/portrom/images/product/priv-app
+            fi
+
+        done
+    fi
+
+    if [[ -d devices/pad/overlay/product/app ]];then
+        for app in $(ls devices/pad/overlay/product/app); do
+            targetAppfolder = $(find build/portrom/images/product/app -type d -name *"$app"* )
+            if [ -d $targetAppfolder ]; then
+                rm -rfv $targetAppfolder
+            fi
+            cp -rfv devices/pad/overlay/product/app/$app build/portrom/images/product/app/
+        done
+    fi
+
+    if [[ -d devices/pad/overlay/system_ext ]]; then
+        cp -rfv devices/pad/overlay/system_ext/* build/portrom/images/system_ext/
+    fi
+
+    blue "Add permissions" 
+    sed -i 's|</permissions>|\t<privapp-permissions package="com.android.mms"> \n\t\t<permission name="android.permission.WRITE_APN_SETTINGS" />\n\t\t<permission name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />\n\t\t<permission name="android.permission.READ_PRIVILEGED_PHONE_STATE" />\n\t\t<permission name="android.permission.CALL_PRIVILEGED" /> \n\t\t<permission name="android.permission.GET_ACCOUNTS_PRIVILEGED" /> \n\t\t<permission name="android.permission.WRITE_SECURE_SETTINGS" />\n\t\t<permission name="android.permission.SEND_SMS_NO_CONFIRMATION" /> \n\t\t<permission name="android.permission.SEND_RESPOND_VIA_MESSAGE" />\n\t\t<permission name="android.permission.UPDATE_APP_OPS_STATS" />\n\t\t<permission name="android.permission.MODIFY_PHONE_STATE" /> \n\t\t<permission name="android.permission.WRITE_MEDIA_STORAGE" /> \n\t\t<permission name="android.permission.MANAGE_USERS" /> \n\t\t<permission name="android.permission.INTERACT_ACROSS_USERS" />\n\t\t <permission name="android.permission.SCHEDULE_EXACT_ALARM" /> \n\t</privapp-permissions>\n</permissions>|'  build/portrom/images/product/etc/permissions/privapp-permissions-product.xml
+    sed -i 's|</permissions>|\t<privapp-permissions package="com.miui.contentextension">\n\t\t<permission name="android.permission.WRITE_SECURE_SETTINGS" />\n\t</privapp-permissions>\n</permissions>|' build/portrom/images/product/etc/permissions/privapp-permissions-product.xml
+
+fi
+
 if [[ -d "devices/common" ]];then
     commonCamera=$(find devices/common -type f -name "MiuiCamera.apk")
     targetCamera=$(find build/portrom/images/product -type d -name "MiuiCamera")
@@ -921,7 +991,7 @@ if [[ -d "devices/common" ]];then
     if [[ $base_android_version == "13" ]] && [[ -f $commonCamera ]];then
         yellow "替换相机为10S HyperOS A13 相机，MI10可用, thanks to 酷安 @PedroZ" "Replacing a compatible MiuiCamera.apk verson 4.5.003000.2"
         if [[ -d $targetCamera ]];then
-        rm -rf $targetCamera/*
+            rm -rf $targetCamera/*
         fi
         cp -rfv $commonCamera $targetCamera
     fi
