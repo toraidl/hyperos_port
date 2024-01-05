@@ -894,6 +894,13 @@ else
   millet_netlink_version=29
   update_netlink "$millet_netlink_version" "build/portrom/images/product/etc/build.prop"
 fi
+# add advanced texture
+if ! is_property_exists persist.sys.background_blur_supported build/portrom/images/product/etc/build.prop; then
+    echo "persist.sys.background_blur_supported=true" >> build/portrom/images/product/etc/build.prop
+    echo "persist.sys.background_blur_version=2" >> build/portrom/images/product/etc/build.prop
+else
+    sed -i "s/persist.sys.background_blur_supported=.*/persist.sys.background_blur_supported=true/" build/portrom/images/product/etc/build.prop
+fi
 
 #自定义替换
 if [[ -d "devices/common" ]];then
