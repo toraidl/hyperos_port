@@ -196,9 +196,9 @@ brightness_fix_method=$(grep "brightness_fix_method" bin/port_config |cut -d '='
 compatible_matrix_matches_enabled=$(grep "compatible_matrix_matches_check" bin/port_config | cut -d '=' -f 2)
 
 if [[ ${repackext4} == true ]]; then
-    pack_type = EXT
+    pack_type=EXT
 else
-    pack_type = EROFS
+    pack_type=EROFS
 fi
 
 
