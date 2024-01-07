@@ -829,7 +829,7 @@ for i in $(find build/portrom/images -type f -name "build.prop");do
     sed -i "s/ro.build.characteristics=tablet/ro.build.characteristics=nosdcard/g" ${i}
     sed -i "s/ro.config.miui_multi_window_switch_enable=true/ro.config.miui_multi_window_switch_enable=false/g" ${i}
     sed -i "s/ro.config.miui_desktop_mode_enabled=true/ro.config.miui_desktop_mode_enabled=false/g" ${i}
-    sed -i "s/ro.miui.density.primaryscale=1.15/ro.miui.density.primaryscale=1/g" ${i}
+    sed -i "/ro.miui.density.primaryscale=.*/d" ${i}
     sed -i "/persist.wm.extensions.enabled=true/d" ${i}
 done
 
