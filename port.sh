@@ -672,12 +672,7 @@ else
     patch_smali "MiuiSystemUI.apk" "MIUIStrongToast\$2.smali" "const\/4 v10\, 0x0" "iget-object v10\, v1\, Lcom\/android\/systemui\/toast\/MIUIStrongToast;->mRLLeft:Landroid\/widget\/RelativeLayout;\\n\\tinvoke-virtual {v10}, Landroid\/widget\/RelativeLayout;->getLeft()I\\n\\tmove-result v10\\n\\tint-to-float v10,v10"
 fi
 
-if [[ "$is_shennong_houji_port" == true ]];then
-    blue "开启HyperMind功能，移植包为14系列AI开发版(23.11.30 Dev) " "Enable hypermind feature( AI dev verison needed)"
 
-     patch_smali "MiLinkCirculateMIUI15.apk" "com/milink/hmindlib/j.smali" ".method public final B()Z" ".method public final B()Z \n\n\t.registers 1 \n\n\tconst\/4 v0,0x1\n\n\treturn v0\n.end method\n\n.method public final B_bak()Z"
-      
-fi
 
 blue "解除状态栏通知个数限制(默认最大6个)" "Set SystemUI maxStaticIcons to 6 by default."
 patch_smali "MiuiSystemUI.apk" "NotificationIconAreaController.smali" "iput p10, p0, Lcom\/android\/systemui\/statusbar\/phone\/NotificationIconContainer;->mMaxStaticIcons:I" "const\/4 p10, 0x6\n\n\tiput p10, p0, Lcom\/android\/systemui\/statusbar\/phone\/NotificationIconContainer;->mMaxStaticIcons:I"
