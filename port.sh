@@ -635,6 +635,12 @@ if [ $(grep -c "sm8250" "build/portrom/images/vendor/build.prop") -ne 0 ]; then
     }  >> build/portrom/images/product/etc/build.prop
 
 fi
+# props from k60
+echo "persist.vendor.mi_sf.optimize_for_refresh_rate.enable=1" >> build/portrom/images/vendor/build.prop
+echo "ro.vendor.mi_sf.ultimate.perf.support=true"  >> build/portrom/images/vendor/build.prop
+echo "ro.surface_flinger.set_touch_timer_ms=200" >> build/portrom/images/vendor/build.prop
+echo "ro.surface_flinger.set_idle_timer_ms=1100" >> build/portrom/images/vendor/build.prop
+echo "debug.sf.set_idle_timer_ms=1100" >> build/portrom/images/vendor/build.prop
 
 #解决开机报错问题
 targetVintf=$(find build/portrom/images/system_ext/etc/vintf -type f -name "manifest.xml")
