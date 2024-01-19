@@ -155,7 +155,7 @@ patch_smali() {
             if [[ $5 == 'regex' ]];then
                  sed -i "/${search_pattern}/c\\${repalcement_pattern}" $targetsmali
             else
-                sed -i "s/$search_pattern/$repalcement_pattern/g" $targetsmali
+            sed -i "s/$search_pattern/$repalcement_pattern/g" $targetsmali
             fi
             java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/$foldername/${smalidir} -o tmp/$foldername/${smalidir}.dex > /dev/null 2>&1 || error " Smaling 失败" "Smaling failed"
             pushd tmp/$foldername/ >/dev/null || exit
@@ -694,27 +694,49 @@ else
     if [[ "$compatible_matrix_matches_enabled" == "false" ]]; then
         patch_smali "framework.jar" "Build.smali" ".method public static isBuildConsistent()Z" ".method public static isBuildConsistent()Z \n\n\t.registers 1 \n\n\tconst\/4 v0,0x1\n\n\treturn v0\n.end method\n\n.method public static isBuildConsistent_bak()Z"
     fi
-
-    APKTOOL="java -jar $work_dir/bin/apktool/apktool.jar"
-    mkdir -p tmp/
+    if [[ ! -d tmp ]];then
+        mkdir -p tmp/
+    fi
     blue "开始移除 Android 签名校验" "Disalbe Android 14 Apk Signature Verfier"
-    cp -rf build/portrom/images/system/system/framework/services.jar tmp/services.apk
-    pushd tmp/
-    $APKTOOL d -q services.apk
-    target_method='getMinimumSignatureSchemeVersionForTargetSdk'
-    find services/smali_classes2/com/android/server/pm/ services/smali_classes2/com/android/server/pm/pkg/parsing/ -type f -maxdepth 1 -name "*.smali" -exec grep -H "$target_method" {} \; | cut -d ':' -f 1 | while read i; do
-    hs=$(grep -n "$target_method" "$i" | cut -d ':' -f 1)
-    sz=$(tail -n +"$hs" "$i" | grep -m 1 "move-result" | tr -dc '0-9')
-    hs1=$(awk -v HS=$hs 'NR>=HS && /move-result /{print NR; exit}' "$i")
-    hss=$hs
-    sedsc="const/4 v${sz}, 0x0"
-    { sed -i "${hs},${hs1}d" "$i" && sed -i "${hss}i\\${sedsc}" "$i"; } && blue "${i}  修改成功"
+    mkdir -p tmp/services/
+    cp -rf build/portrom/images/system/system/framework/services.jar tmp/services/services.jar
+    
+    7z x -y tmp/services/services.jar *.dex -otmp/services > /dev/null 2>&1
+    target_method='getMinimumSignatureSchemeVersionForTargetSdk' 
+    for dexfile in tmp/services/*.dex;do
+        smali_fname=${dexfile%.*}
+        smali_base_folder=$(echo $smali_fname | cut -d "/" -f 3)
+        java -jar bin/apktool/baksmali.jar d --api ${port_android_sdk} ${dexfile} -o tmp/services/$smali_base_folder
     done
-    blue  "反编译成功，开始回编译"
-    popd
-    $APKTOOL b -q -f -c tmp/services/ -o tmp/services.jar
 
-    cp -rfv tmp/services.jar build/portrom/images/system/system/framework/services.jar
+    old_smali_dir=""
+    declare -a smali_dirs
+
+    while read -r smali_file; do
+        smali_dir=$(echo "$smali_file" | cut -d "/" -f 3)
+
+        if [[ $smali_dir != $old_smali_dir ]]; then
+            smali_dirs+=("$smali_dir")
+        fi
+
+        method_line=$(grep -n "$target_method" "$smali_file" | cut -d ':' -f 1)
+        register_number=$(tail -n +"$method_line" "$smali_file" | grep -m 1 "move-result" | tr -dc '0-9')
+        move_result_end_line=$(awk -v ML=$method_line 'NR>=ML && /move-result /{print NR; exit}' "$smali_file")
+        orginal_line_number=$method_line
+        replace_with_command="const/4 v${register_number}, 0x0"
+        { sed -i "${orginal_line_number},${move_result_end_line}d" "$smali_file" && sed -i "${orginal_line_number}i\\${replace_with_command}" "$smali_file"; } &&    blue "${smali_file}  修改成功"
+        old_smali_dir=$smali_dir
+    done < <(find tmp/services -type f -name "*.smali" -exec grep -H "$target_method" {} \; | cut -d ':' -f 1)
+
+    for smali_dir in "${smali_dirs[@]}"; do
+        blue "反编译成功，开始回编译 $smali_dir"
+        java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/services/${smali_dir} -o tmp/services/${smali_dir}.dex
+        pushd tmp/services/ > /dev/null 2>&1
+        7z a -y -mx0 -tzip tmp/services/services.jar ${smali_dir}.dex > /dev/null 2>&1
+        popd > /dev/null 2>&1
+    done
+    
+    cp -rfv tmp/services/services.jar build/portrom/images/system/system/framework/services.jar
     
 fi
 
