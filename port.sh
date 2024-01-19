@@ -918,6 +918,7 @@ else
     sed -i "s/persist.sys.background_blur_supported=.*/persist.sys.background_blur_supported=true/" build/portrom/images/product/etc/build.prop
 fi
 
+unlock_device_feature "device support screen enhance engine" "support_screen_enhance_engine"
 unlock_device_feature "Whether suppot Android Flashlight Controller" "support_android_flashlight"
 
 #自定义替换
