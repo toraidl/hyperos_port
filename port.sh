@@ -921,6 +921,7 @@ fi
 unlock_device_feature "Whether support AI Display" "support_AI_display"
 unlock_device_feature "device support screen enhance engine" "support_screen_enhance_engine"
 unlock_device_feature "Whether suppot Android Flashlight Controller" "support_android_flashlight"
+unlock_device_feature "Whether support SR for image display" "support_SR_for_image_display"
 
 #自定义替换
 
