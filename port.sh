@@ -178,6 +178,22 @@ patch_smali() {
     fi
 
 }
+
+unlock_device_feature() {
+    feature=$2
+    if [[ ! -z "$1" ]]; then
+        comment=$1
+    else
+        comment="Whether enable $feature feature"
+    fi
+
+    if ! grep -q "$feature" build/portrom/images/product/etc/device_features/${base_rom_code}.xml;then
+        sed -i "/<features>/a\\\t<!-- ${comment} -->\n\t<bool name=\"${feature}\">true</bool> " build/portrom/images/product/etc/device_features/${base_rom_code}.xml
+    else
+        sed -i "s/<bool name=\"$feature\">.*<\/bool>/<bool name=\"$feature\">true<\/bool>/" build/portrom/images/product/etc/device_features/${base_rom_code}.xml
+    fi
+}
+
 #check if a prperty is avaialble
 is_property_exists () {
     if [ $(grep -c "$1" "$2") -ne 0 ]; then
