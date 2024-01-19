@@ -918,11 +918,7 @@ else
     sed -i "s/persist.sys.background_blur_supported=.*/persist.sys.background_blur_supported=true/" build/portrom/images/product/etc/build.prop
 fi
 
-# Enable flashlight contorller
-if ! grep -q "support_android_flashlight" build/portrom/images/product/etc/device_features/${base_rom_code}.xml;then
-    sed -i '/<features>/a\\t<!--whether suppot Android Flashlight Controller-->\n\t<bool name=\"support_android_flashlight\">true</bool>
-' build/portrom/images/product/etc/device_features/${base_rom_code}.xml
-fi
+unlock_device_feature "Whether suppot Android Flashlight Controller" "support_android_flashlight"
 
 #自定义替换
 
