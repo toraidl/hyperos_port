@@ -923,6 +923,14 @@ unlock_device_feature "device support screen enhance engine" "support_screen_enh
 unlock_device_feature "Whether suppot Android Flashlight Controller" "support_android_flashlight"
 unlock_device_feature "Whether support SR for image display" "support_SR_for_image_display"
 
+# Unlock MEMC; unlocking the screen enhance engine is a prerequisite.
+# This feature add additional frames to videos to make content appear smooth and transitions lively.
+if  grep -q "ro.vendor.media.video.frc.support" build/portrom/images/vendor/build.prop ;then
+    sed -i "s/ro.vendor.media.video.frc.support=.*/ro.vendor.media.video.frc.support=true/" build/portrom/images/vendor/build.prop
+else
+    echo "ro.vendor.media.video.frc.support=true" >> build/portrom/images/vendor/build.prop
+fi
+
 #自定义替换
 
 if [[ ${port_rom_code} == "dagu_cn" ]];then
