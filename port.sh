@@ -732,7 +732,7 @@ else
         blue "反编译成功，开始回编译 $smali_dir"
         java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/services/${smali_dir} -o tmp/services/${smali_dir}.dex
         pushd tmp/services/ > /dev/null 2>&1
-        7z a -y -mx0 -tzip tmp/services/services.jar ${smali_dir}.dex > /dev/null 2>&1
+        7z a -y -mx0 -tzip services.jar ${smali_dir}.dex > /dev/null 2>&1
         popd > /dev/null 2>&1
     done
     
