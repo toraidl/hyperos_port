@@ -632,7 +632,7 @@ if [[ -f $targetFrameworksResCommon ]]; then
     bin/apktool/apktool d $targetFrameworksResCommon -o tmp/$targetDir -f > /dev/null 2>&1
 
     defaultMaxRefreshRate=$(xmlstarlet sel -t -v "//integer-array[@name='fpsList']/item" build/portrom/images/product/etc/device_features/${base_rom_code}.xml | sort -nr | head -n 1)
-    Blue "Max RefreshRate: $defaultMaxRefreshRate"
+    blue "Max RefreshRate: $defaultMaxRefreshRate"
 
     for xml in $(find tmp/$targetDir -type f -name "integers.xml");do
         # Change DefaultRefrshRate to 90 
