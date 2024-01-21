@@ -619,6 +619,30 @@ if [[ -f $targetDevicesAndroidOverlay ]]; then
     rm -rf tmp
 fi
 
+# Change Default Refresh Rate 
+targetFrameworksResCommon=$(find build/portrom/images/product -type f -name "FrameworksResCommon.apk")
+if [[ -f $targetFrameworksResCommon ]]; then
+    
+    if [[ ! -d tmp ]]; then
+     mkdir tmp
+    fi
+    filename=$(basename $targetFrameworksResCommon)
+    yellow "Change defaultRefreshRate/defaultPeakRefreshRate: $filename ..."
+    targetDir=$(echo "$filename" | sed 's/\..*$//')
+    bin/apktool/apktool d $targetFrameworksResCommon -o tmp/$targetDir -f > /dev/null 2>&1
+
+    defaultMaxRefreshRate=$(xmlstarlet sel -t -v "//integer-array[@name='fpsList']/item" build/portrom/images/product/etc/device_features/${base_rom_code}.xml | sort -nr | head -n 1)
+    Blue "Max RefreshRate: $defaultMaxRefreshRate"
+
+    for xml in $(find tmp/$targetDir -type f -name "integers.xml");do
+        # Change DefaultRefrshRate to 90 
+        xmlstarlet ed -L -u "//integer[@name='config_defaultPeakRefreshRate']/text()" -v $defaultMaxRefreshRate $xml
+        xmlstarlet ed -L -u "//integer[@name='config_defaultRefreshRate']/text()" -v $defaultMaxRefreshRate $xml
+    done
+    bin/apktool/apktool b tmp/$targetDir -o tmp/$filename > /dev/null 2>&1 || error "apktool 打包失败" "apktool mod failed"
+    cp -rfv tmp/$filename $targetFrameworksResCommon
+fi
+
 #其他机型可能没有default.prop
 for prop_file in $(find build/portrom/images/vendor/ -name "*.prop"); do
     vndk_version=$(< "$prop_file" grep "ro.vndk.version" | awk "NR==1" | cut -d '=' -f 2)
