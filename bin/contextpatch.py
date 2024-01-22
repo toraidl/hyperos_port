@@ -3,11 +3,8 @@
 import os
 from re import sub
 from difflib import SequenceMatcher
-fix_permission = {"/vendor/bin/hw/android.hardware.wifi@1.0": "u:object_r:hal_wifi_default_exec:s0"}
 
-AUTHOR = "ColdWindScholar"
-LICENES = "Apache 2.0"
-VERSION = "1.0"
+fix_permission = {"/vendor/bin/hw/android.hardware.wifi@1.0": "u:object_r:hal_wifi_default_exec:s0"}
 
 
 def scan_context(file) -> dict:  # 读取context文件返回一个字典
@@ -81,25 +78,23 @@ def main(dir_path, fs_config) -> None:
     with open(fs_config, "w+", encoding='utf-8', newline='\n') as f:
         f.writelines([i + " " + " ".join(new_fs[i]) + "\n" for i in sorted(new_fs.keys())])
     print('ContextPatcher: Add %d' % add_new + " entries")
-def Usage():
+
+
+def usage():
     print("Usage:")
-    print("%s <folder> <fs_config>" %(sys.argv[0]))
+    print("%s <folder> <context_config>" % (sys.argv[0]))
     print("    This script will auto patch file_context")
+
 
 if __name__ == '__main__':
     import sys
-    global VERBOSE
-    VERBOSE = False
+
     if len(sys.argv) < 3:
-        Usage()
+        usage()
         sys.exit()
-    if len(sys.argv) > 3:
-        if sys.argv[3] == '-i':
-            VERBOSE = True
-    if (os.path.isdir(sys.argv[1]) or os.path.isfile(sys.argv[2])):
-        print("CONTEXTPATCH by [%s]\n\nVERSION [%s]" %(AUTHOR,VERSION))
+    if os.path.isdir(sys.argv[1]) or os.path.isfile(sys.argv[2]):
         main(sys.argv[1], sys.argv[2])
         print("Done!")
     else:
-        print("The path or filetype you have given may wrong,please check it wether correct.")
-        Usage()
+        print("The path or filetype you have given may wrong,please check it weather correct.")
+        usage()
