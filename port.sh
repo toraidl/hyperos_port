@@ -300,9 +300,9 @@ find . -type d -name 'hyperos_*' |xargs rm -rf
 
 green "文件清理完毕" "Files cleaned up."
 mkdir -p build/baserom/images/
-mkdir -p build/baserom/config/
+
 mkdir -p build/portrom/images/
-mkdir -p build/portrom/config/
+
 
 # 提取分区
 if [[ ${baserom_type} == 'payload' ]];then
@@ -364,19 +364,16 @@ for part in system system_dlkm system_ext product product_dlkm mi_ext ;do
     if [[ -f build/baserom/images/${part}.img ]];then 
         if [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "ext" ]];then
             blue "正在分解底包 ${part}.img [ext]" "Extracing ${part}.img [ext] from BASEROM"
-            sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img >/dev/null 2>&1
+            sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img build/baserom/images/ >/dev/null 2>&1
             blue "分解底包 [${part}.img] 完成" "BASEROM ${part}.img [ext] extracted."
-            mv ${part} build/baserom/images/
             rm -rf build/baserom/images/${part}.img      
         elif [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "erofs" ]]; then
             pack_type=EROFS
             blue "正在分解底包 ${part}.img [erofs]" "Extracing ${part}.img [erofs] from BASEROM"
-            extract.erofs -x -i build/baserom/images/${part}.img  > /dev/null 2>&1 || error "分解 ${part}.img 失败" "Extracting ${part}.img failed."
+            extract.erofs -x -i build/baserom/images/${part}.img  -o build/baserom/images/ > /dev/null 2>&1 || error "分解 ${part}.img 失败" "Extracting ${part}.img failed."
             blue "分解底包 [${part}.img][erofs] 完成" "BASEROM ${part}.img [erofs] extracted."
-            mv ${part} build/baserom/images/
             rm -rf build/baserom/images/${part}.img
         fi
-        mv config/*${part}* build/baserom/config/
     fi
     
 done
@@ -409,21 +406,17 @@ for part in ${super_list};do
         
         if [[ $($tools_dir/gettype -i build/portrom/images/${part}.img) == "ext" ]];then
             pack_type=EXT
-            python3 bin/imgextractor/imgextractor.py build/portrom/images/${part}.img > /dev/null 2>&1 || error "提取${part}失败" "Extracting partition ${part} failed"
-            mv ${part} build/portrom/images/
+            python3 bin/imgextractor/imgextractor.py build/portrom/images/${part}.img build/portrom/images/ > /dev/null 2>&1 || error "提取${part}失败" "Extracting partition ${part} failed"
             mkdir -p build/portrom/images/${part}/lost+found
-            mv config/*${part}* build/portrom/config/
-            #rm -rf build/portrom/images/${part}.img
+            rm -rf build/portrom/images/${part}.img
             green "提取 [${part}] [ext]镜像完毕" "Extracting [${part}].img [ext] done"
         elif [[ $(gettype -i build/portrom/images/${part}.img) == "erofs" ]];then
             pack_type=EROFS
             green "移植包为 [erofs] 文件系统" "PORTROM filesystem: [erofs]. "
             [ "${repackext4}" = "true" ] && pack_type=EXT
-            extract.erofs -x -i build/portrom/images/${part}.img  > /dev/null 2>&1 || error "提取${part}失败" "Extracting ${part} failed"
-            mv ${part} build/portrom/images/
+            extract.erofs -x -i build/portrom/images/${part}.img -o build/portrom/images/ > /dev/null 2>&1 || error "提取${part}失败" "Extracting ${part} failed"
             mkdir -p build/portrom/images/${part}/lost+found
-            mv config/*${part}* build/portrom/config/
-            #rm -rf build/portrom/images/${part}.img
+            rm -rf build/portrom/images/${part}.img
             green "提取移植包[${part}] [erofs]镜像完毕" "Extracting ${part} [erofs] done."
         fi
         
@@ -1165,9 +1158,9 @@ for pname in ${super_list};do
             done
             thisSize=$(echo "$thisSize + $addSize" |bc)
             blue 以[$pack_type]文件系统打包[${pname}.img]大小[$thisSize] "Packing [${pname}.img]:[$pack_type] with size [$thisSize]"
-            python3 bin/fspatch.py build/portrom/images/${pname} build/portrom/config/${pname}_fs_config
-            python3 bin/contextpatch.py build/portrom/images/${pname} build/portrom/config/${pname}_file_contexts
-            make_ext4fs -J -T $(date +%s) -S build/portrom/config/${pname}_file_contexts -l $thisSize -C build/portrom/config/${pname}_fs_config -L ${pname} -a ${pname} build/portrom/images/${pname}.img build/portrom/images/${pname}
+            python3 bin/fspatch.py build/portrom/images/${pname} build/portrom/images/config/${pname}_fs_config
+            python3 bin/contextpatch.py build/portrom/images/${pname} build/portrom/images/config/${pname}_file_contexts
+            make_ext4fs -J -T $(date +%s) -S build/portrom/images/config/${pname}_file_contexts -l $thisSize -C build/portrom/images/config/${pname}_fs_config -L ${pname} -a ${pname} build/portrom/images/${pname}.img build/portrom/images/${pname}
 
             if [ -f "build/portrom/images/${pname}.img" ];then
                 green "成功以大小 [$thisSize] 打包 [${pname}.img] [${pack_type}] 文件系统" "Packing [${pname}.img] with [${pack_type}], size: [$thisSize] success"
@@ -1178,10 +1171,10 @@ for pname in ${super_list};do
         else
             
                 blue 以[$pack_type]文件系统打包[${pname}.img] "Packing [${pname}.img] with [$pack_type] filesystem"
-                python3 bin/fspatch.py build/portrom/images/${pname} build/portrom/config/${pname}_fs_config
-                python3 bin/contextpatch.py build/portrom/images/${pname} build/portrom/config/${pname}_file_contexts
-                #sudo perl -pi -e 's/\\@/@/g' build/portrom/config/${pname}_file_contexts
-                mkfs.erofs --mount-point ${pname} --fs-config-file build/portrom/config/${pname}_fs_config --file-contexts build/portrom/config/${pname}_file_contexts build/portrom/images/${pname}.img build/portrom/images/${pname}
+                python3 bin/fspatch.py build/portrom/images/${pname} build/portrom/images/config/${pname}_fs_config
+                python3 bin/contextpatch.py build/portrom/images/${pname} build/portrom/images/config/${pname}_file_contexts
+                #sudo perl -pi -e 's/\\@/@/g' build/portrom/images/config/${pname}_file_contexts
+                mkfs.erofs --mount-point ${pname} --fs-config-file build/portrom/images/config/${pname}_fs_config --file-contexts build/portrom/images/config/${pname}_file_contexts build/portrom/images/${pname}.img build/portrom/images/${pname}
                 if [ -f "build/portrom/images/${pname}.img" ];then
                     green "成功以 [erofs] 文件系统打包 [${pname}.img]" "Packing [${pname}.img] successfully with [erofs] format"
                     #rm -rf build/portrom/images/${pname}
