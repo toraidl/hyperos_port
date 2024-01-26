@@ -608,7 +608,7 @@ if [[ -f $targetDevicesAndroidOverlay ]]; then
         sed -i "s/$search_pattern/$replacement_pattern/g" $xml
     done
     bin/apktool/apktool b tmp/$targetDir -o tmp/$filename > /dev/null 2>&1 || error "apktool 打包失败" "apktool mod failed"
-    cp -rfv tmp/$filename $targetDevicesAndroidOverlay
+    cp -rf tmp/$filename $targetDevicesAndroidOverlay
     rm -rf tmp
 fi
 
@@ -633,7 +633,7 @@ if [[ -f $targetFrameworksResCommon ]]; then
         xmlstarlet ed -L -u "//integer[@name='config_defaultRefreshRate']/text()" -v $defaultMaxRefreshRate $xml
     done
     bin/apktool/apktool b tmp/$targetDir -o tmp/$filename > /dev/null 2>&1 || error "apktool 打包失败" "apktool mod failed"
-    cp -rfv tmp/$filename $targetFrameworksResCommon
+    cp -rf tmp/$filename $targetFrameworksResCommon
 fi
 
 #其他机型可能没有default.prop
@@ -759,7 +759,7 @@ else
         popd > /dev/null 2>&1
     done
     
-    cp -rfv tmp/services/services.jar build/portrom/images/system/system/framework/services.jar
+    cp -rf tmp/services/services.jar build/portrom/images/system/system/framework/services.jar
     
 fi
 
@@ -996,7 +996,7 @@ if [[ ${port_rom_code} == "dagu_cn" ]];then
             sed -i 's|<bool name="config_voice_capable">false</bool>|<bool name="config_voice_capable">true</bool>|' $xml
         done
         bin/apktool/apktool b tmp/$targetDir -o tmp/$filename > /dev/null 2>&1 || error "apktool 打包失败" "apktool mod failed"
-        cp -rfv tmp/$filename $targetAospFrameworkTelephonyResOverlay
+        cp -rf tmp/$filename $targetAospFrameworkTelephonyResOverlay
         #rm -rf tmp
     fi
     blue "Replace Pad Software"
@@ -1008,9 +1008,9 @@ if [[ ${port_rom_code} == "dagu_cn" ]];then
             targetApkFolder=$(find build/portrom/images/product/priv-app -type d -name *"$app"* )
             if  [[ -d $targetApkFolder ]];then
                     rm -rfv $targetApkFolder
-                    cp -rfv $sourceApkFolder build/portrom/images/product/priv-app
+                    cp -rf $sourceApkFolder build/portrom/images/product/priv-app
             else
-                cp -rfv $sourceApkFolder build/portrom/images/product/priv-app
+                cp -rf $sourceApkFolder build/portrom/images/product/priv-app
             fi
 
         done
@@ -1022,12 +1022,12 @@ if [[ ${port_rom_code} == "dagu_cn" ]];then
             if [ -d $targetAppfolder ]; then
                 rm -rfv $targetAppfolder
             fi
-            cp -rfv devices/pad/overlay/product/app/$app build/portrom/images/product/app/
+            cp -rf devices/pad/overlay/product/app/$app build/portrom/images/product/app/
         done
     fi
 
     if [[ -d devices/pad/overlay/system_ext ]]; then
-        cp -rfv devices/pad/overlay/system_ext/* build/portrom/images/system_ext/
+        cp -rf devices/pad/overlay/system_ext/* build/portrom/images/system_ext/
     fi
 
     blue "Add permissions" 
@@ -1047,8 +1047,8 @@ if [[ -d "devices/common" ]];then
 
     if [[ $base_android_version == "13" ]];then
         rm -rf $targetNQNfcNci
-        cp -rfv devices/common/overlay/system/* build/portrom/images/system/
-        cp -rfv devices/common/overlay/system_ext/framework/* build/portrom/images/system_ext/framework/
+        cp -rf devices/common/overlay/system/* build/portrom/images/system/
+        cp -rf devices/common/overlay/system_ext/framework/* build/portrom/images/system_ext/framework/
 
     fi
     if [[ $base_android_version == "13" ]] && [[ -f $commonCamera ]];then
@@ -1056,19 +1056,19 @@ if [[ -d "devices/common" ]];then
         if [[ -d $targetCamera ]];then
             rm -rf $targetCamera/*
         fi
-        cp -rfv $commonCamera $targetCamera
+        cp -rf $commonCamera $targetCamera
     fi
     if [[ -f "$bootAnimationZIP" ]];then
         yellow "替换开机第二屏动画" "Repacling bootanimation.zip"
-        cp -rfv $bootAnimationZIP $targetAnimationZIP
+        cp -rf $bootAnimationZIP $targetAnimationZIP
     fi
 
     if [[ -d "$targetMiLinkCirculateMIUI15" ]]; then
         rm -rf $targetMiLinkCirculateMIUI15/*
-        cp -rfv $MiLinkCirculateMIUI15 $targetMiLinkCirculateMIUI15
+        cp -rf $MiLinkCirculateMIUI15 $targetMiLinkCirculateMIUI15
     else
         mkdir -p build/portrom/images/product/app/MiLinkCirculateMIUI15
-        cp -rfv $MiLinkCirculateMIUI15 build/portrom/images/product/app/
+        cp -rf $MiLinkCirculateMIUI15 build/portrom/images/product/app/
     fi
 fi
 
