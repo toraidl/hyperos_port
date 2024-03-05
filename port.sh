@@ -786,10 +786,10 @@ else
     sed -i "s/persist.sys.background_blur_supported=.*/persist.sys.background_blur_supported=true/" build/portrom/images/product/etc/build.prop
 fi
 
-unlock_device_feature "Whether support AI Display" "support_AI_display"
-unlock_device_feature "device support screen enhance engine" "support_screen_enhance_engine"
-unlock_device_feature "Whether suppot Android Flashlight Controller" "support_android_flashlight"
-unlock_device_feature "Whether support SR for image display" "support_SR_for_image_display"
+unlock_device_feature "Whether support AI Display"  "bool" "support_AI_display"
+unlock_device_feature "device support screen enhance engine"  "bool" "support_screen_enhance_engine"
+unlock_device_feature "Whether suppot Android Flashlight Controller"  "bool" "support_android_flashlight"
+unlock_device_feature "Whether support SR for image display"  "bool" "support_SR_for_image_display"
 
 # Unlock MEMC; unlocking the screen enhance engine is a prerequisite.
 # This feature add additional frames to videos to make content appear smooth and transitions lively.
