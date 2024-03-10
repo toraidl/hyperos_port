@@ -796,6 +796,9 @@ if  grep -q "ro.vendor.media.video.frc.support" build/portrom/images/vendor/buil
 else
     echo "ro.vendor.media.video.frc.support=true" >> build/portrom/images/vendor/build.prop
 fi
+# Unlock Smart fps
+unlock_device_feature "whether support fps change " "bool" "support_smart_fps"
+unlock_device_feature "smart fps value" "integer" "smart_fps_value" "90"
 
 #自定义替换
 
