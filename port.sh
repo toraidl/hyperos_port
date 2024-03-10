@@ -488,6 +488,7 @@ fi
 if [ $(grep -c "sm8250" "build/portrom/images/vendor/build.prop") -ne 0 ]; then
     ## Fix the drop frame issus
     echo "ro.surface_flinger.enable_frame_rate_override=false" >> build/portrom/images/vendor/build.prop
+    echo "ro.vendor.display.mode_change_optimize.enable=true" >> build/portrom/images/vendor/build.prop
 
     sed -i "s/persist.sys.miui_animator_sched.bigcores=.*/persist.sys.miui_animator_sched.bigcores=4-6/" build/portrom/images/product/etc/build.prop
     sed -i "s/persist.sys.miui_animator_sched.big_prime_cores=.*/persist.sys.miui_animator_sched.big_prime_cores=4-7/" build/portrom/images/product/etc/build.prop
