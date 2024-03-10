@@ -448,28 +448,25 @@ if [[ -f $targetDevicesAndroidOverlay ]]; then
     rm -rf tmp
 fi
 
-# Change Default Refresh Rate 
-targetFrameworksResCommon=$(find build/portrom/images/product -type f -name "FrameworksResCommon.apk")
-if [[ -f $targetFrameworksResCommon ]]; then
+# Fix boot up frame drop issue. 
+targetAospFrameworkResOverlay=$(find build/portrom/images/product -type f -name "AospFrameworkResOverlay.apk")
+
+if [[ -f $targetAospFrameworkResOverlay ]]; then
     
     if [[ ! -d tmp ]]; then
      mkdir tmp
     fi
-    filename=$(basename $targetFrameworksResCommon)
-    yellow "Change defaultRefreshRate/defaultPeakRefreshRate: $filename ..."
+    filename=$(basename $targetAospFrameworkResOverlay)
+    yellow "Change defaultPeakRefreshRate: $filename ..."
     targetDir=$(echo "$filename" | sed 's/\..*$//')
-    bin/apktool/apktool d $targetFrameworksResCommon -o tmp/$targetDir -f > /dev/null 2>&1
-
-    defaultMaxRefreshRate=$(xmlstarlet sel -t -v "//integer-array[@name='fpsList']/item" build/portrom/images/product/etc/device_features/${base_rom_code}.xml | sort -nr | head -n 1)
-    blue "Max RefreshRate: $defaultMaxRefreshRate"
+    bin/apktool/apktool d $targetAospFrameworkResOverlay -o tmp/$targetDir -f > /dev/null 2>&1
 
     for xml in $(find tmp/$targetDir -type f -name "integers.xml");do
-        # Change DefaultRefrshRate to 90 
-        xmlstarlet ed -L -u "//integer[@name='config_defaultPeakRefreshRate']/text()" -v $defaultMaxRefreshRate $xml
-        xmlstarlet ed -L -u "//integer[@name='config_defaultRefreshRate']/text()" -v $defaultMaxRefreshRate $xml
+        # magic: Change DefaultPeakRefrshRate to 60 
+        xmlstarlet ed -L -u "//integer[@name='config_defaultPeakRefreshRate']/text()" -v 60 $xml
     done
     bin/apktool/apktool b tmp/$targetDir -o tmp/$filename > /dev/null 2>&1 || error "apktool 打包失败" "apktool mod failed"
-    cp -rf tmp/$filename $targetFrameworksResCommon
+    cp -rf tmp/$filename $targetAospFrameworkResOverlay
 fi
 
 #其他机型可能没有default.prop
