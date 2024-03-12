@@ -915,7 +915,7 @@ fi
 
 #Devices/机型代码/overaly 按照镜像的目录结构，可直接替换目标。
 if [[ -d "devices/${base_rom_code}/overlay" ]]; then
-    blue "replace files in here"
+    cp -rf devices/${base_rom_code}/overlay/* build/portrom/images/
 else
     yellow "devices/${base_rom_code}/overlay 未找到" "devices/${base_rom_code}/overlay not found" 
 fi
