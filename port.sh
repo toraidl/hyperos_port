@@ -813,6 +813,10 @@ unlock_device_feature "smart fps value" "integer" "smart_fps_value" "${maxFps}"
 patch_smali "PowerKeeper.apk" "DisplayFrameSetting.smali" "unicorn" "umi"
 patch_smali "MISettings.apk" "NewRefreshRateFragment.smali" "const-string v1, \"btn_preferce_category\"" "const-string v1, \"btn_preferce_category\"\n\n\tconst\/16 p1, 0x1"
 
+# Unlock eyecare mode 
+unlock_device_feature "default rhythmic eyecare mode" "integer" "default_eyecare_mode" "2"
+unlock_device_feature "default texture for paper eyecare" "integer" "paper_eyecare_default_texture" "0"
+
 #自定义替换
 
 if [[ ${port_rom_code} == "dagu_cn" ]];then
