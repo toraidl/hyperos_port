@@ -801,8 +801,17 @@ echo "debug.game.video.speed=true" >> build/portrom/images/product/etc/build.pro
 echo "debug.game.video.support=true" >> build/portrom/images/product/etc/build.prop
 
 # Unlock Smart fps
+
+maxFps=$(xmlstarlet sel -t -v "//integer-array[@name='fpsList']/item" build/portrom/images/product/etc/device_features/${base_rom_code}.xml | sort -nr | head -n 1)
+
+if [ -z "$maxFps" ]; then
+    maxFps=90
+fi
+
 unlock_device_feature "whether support fps change " "bool" "support_smart_fps"
-unlock_device_feature "smart fps value" "integer" "smart_fps_value" "90"
+unlock_device_feature "smart fps value" "integer" "smart_fps_value" "${maxFps}"
+patch_smali "PowerKeeper.apk" "DisplayFrameSetting.smali" "unicorn" "umi"
+patch_smali "MISettings.apk" "NewRefreshRateFragment.smali" "const-string v1, \"btn_preferce_category\"" "const-string v1, \"btn_preferce_category\"\n\n\tconst\/16 p1, 0x1"
 
 #自定义替换
 
