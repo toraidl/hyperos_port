@@ -1105,7 +1105,7 @@ if [[ "$is_ab_device" == false ]];then
         mkdir -p out/${os_type}_${device_code}_${port_rom_version}/firmware-update
         cp -rf build/baserom/firmware-update/*  out/${os_type}_${device_code}_${port_rom_version}/firmware-update
 
-         for fwimg in $(ls out/${os_type}_${device_code}_${port_rom_version}/firmware-update | grep -v "cust");do
+         for fwimg in $(ls out/${os_type}_${device_code}_${port_rom_version}/firmware-update);do
             if [[ ${fwimg} == "uefi_sec.mbn" ]];then
                 part="uefisecapp"
             elif [[ ${fwimg} == "qupv3fw.elf" ]];then

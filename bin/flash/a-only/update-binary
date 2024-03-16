@@ -145,9 +145,10 @@ package_extract_file "firmware-update/cmnlib.mbn" "/dev/block/bootdevice/by-name
 package_extract_file "firmware-update/NON-HLOS.bin" "/dev/block/bootdevice/by-name/modem"
 package_extract_file "firmware-update/xbl_config_5.elf" "/dev/block/bootdevice/by-name/xbl_config_5"
 package_extract_file "firmware-update/cmnlib64.mbn" "/dev/block/bootdevice/by-name/cmnlib64"
+package_extract_file "firmware-update/images/cust.img" "/dev/block/bootdevice/by-name/cust"
 
+#super image
 
-#super cust image
 package_extract_zstd "super.zst" "/dev/block/bootdevice/by-name/super"
 
 ui_print "- 清除缓存 - Clearing cache."
