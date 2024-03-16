@@ -125,23 +125,22 @@ def main(dir_path, fs_config) -> None:
     with open(fs_config, "w", encoding='utf-8', newline='\n') as f:
         f.writelines([i + " " + " ".join(new_fs[i]) + "\n" for i in sorted(new_fs.keys())])
     print('FsPatcher: Add %d' % new_add + " entries")
+
+
 def Usage():
     print("Usage:")
-    print("%s <folder> <fs_config>" %(sys.argv[0]))
+    print("%s <folder> <fs_config>" % (sys.argv[0]))
     print("    This script will auto patch fs_config")
+
 
 if __name__ == '__main__':
     import sys
-    global VERBOSE
-    VERBOSE = False
+
     if len(sys.argv) < 3:
         Usage()
         sys.exit()
-    if len(sys.argv) > 3:
-        if sys.argv[3] == '-i':
-            VERBOSE = True
-    if (os.path.isdir(sys.argv[1]) or os.path.isfile(sys.argv[2])):
-        print("FSPATCH by [%s]\nLICENES [%s]\nVERSION [%s]" %(AUTHOR, LICENES, VERSION))
+    if os.path.isdir(sys.argv[1]) or os.path.isfile(sys.argv[2]):
+        print("FSPATCH by [%s]\nLICENES [%s]\nVERSION [%s]" % (AUTHOR, LICENES, VERSION))
         main(sys.argv[1], sys.argv[2])
         print("Done!")
     else:
