@@ -151,7 +151,7 @@ elif [[ ${is_base_rom_eu} == true ]];then
     blue "正在提取底包 [super.img]" "Extracting files from BASETROM [super.img]"
     unzip ${baserom} 'images/*' -d build/baserom >  /dev/null 2>&1 ||error "解压移植包 [super.img] 时出错"  "Extracting [super.img] error"
     blue "合并super.img* 到super.img" "Merging super.img.* into super.img"
-    simg2img build/baserom/images/super.img.* build/baserom/images/super.img
+    ${tools_dir}/simg2img build/baserom/images/super.img.* build/baserom/images/super.img
     rm -rf build/baserom/images/super.img.*
     mv build/baserom/images/super.img build/baserom/super.img
     green "底包 [super.img] 提取完毕" "[super.img] extracted."
@@ -164,7 +164,7 @@ if [[ ${is_eu_rom} == true ]];then
     blue "正在提取移植包 [super.img]" "Extracting files from PORTROM [super.img]"
     unzip ${portrom} 'images/super.img.*' -d build/portrom >  /dev/null 2>&1 ||error "解压移植包 [super.img] 时出错"  "Extracting [super.img] error"
     blue "合并super.img* 到super.img" "Merging super.img.* into super.img"
-    simg2img build/portrom/images/super.img.* build/portrom/images/super.img
+    ${tools_dir}/simg2img build/portrom/images/super.img.* build/portrom/images/super.img
     rm -rf build/portrom/images/super.img.*
     mv build/portrom/images/super.img build/portrom/super.img
     green "移植包 [super.img] 提取完毕" "[super.img] extracted."
