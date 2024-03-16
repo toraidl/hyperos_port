@@ -300,21 +300,15 @@ if grep -q "ro.build.ab_update=true" build/portrom/images/vendor/build.prop;  th
 else
     is_ab_device=false
 fi
-
-baseAospFrameworkResOverlay=$(find build/baserom/images/product -type f -name "AospFrameworkResOverlay.apk")
-portAospFrameworkResOverlay=$(find build/portrom/images/product -type f -name "AospFrameworkResOverlay.apk")
-if [ -f "${baseAospFrameworkResOverlay}" ] && [ -f "${portAospFrameworkResOverlay}" ];then
-    blue "正在替换 [AospFrameworkResOverlay.apk]" "Replacing [AospFrameworkResOverlay.apk]" 
-    cp -rf ${baseAospFrameworkResOverlay} ${portAospFrameworkResOverlay}
-fi
-
-
-baseMiuiFrameworkResOverlay=$(find build/baserom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
-portMiuiFrameworkResOverlay=$(find build/portrom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
-if [ -f ${baseMiuiFrameworkResOverlay} ] && [ -f ${portMiuiFrameworkResOverlay} ];then
-    blue "正在替换 [MiuiFrameworkResOverlay.apk]" "Replacing [MiuiFrameworkResOverlay.apk]" 
-    cp -rf ${baseMiuiFrameworkResOverlay} ${portMiuiFrameworkResOverlay}
-fi
+for cpfile in "AospFrameworkResOverlay.apk" "MiuiFrameworkResOverlay.apk" "DevicesAndroidOverlay.apk" "DevicesOverlay.apk" "SettingsRroDeviceHideStatusBarOverlay.apk" "MiuiBiometricResOverlay.apk"
+do
+  base_file=$(find build/baserom/images/product -type f -name "$cpfile")
+  port_file=$(find build/portrom/images/product -type f -name "$cpfile")
+  if [ -f "${base_file}" ] && [ -f "${port_file}" ];then
+    blue "正在替换 [$cpfile]" "Replacing [$cpfile]"
+    cp -rf ${base_file} ${port_file}
+  fi
+done
 
 #baseAospWifiResOverlay=$(find build/baserom/images/product -type f -name "AospWifiResOverlay.apk")
 ##portAospWifiResOverlay=$(find build/portrom/images/product -type f -name "AospWifiResOverlay.apk")
@@ -323,33 +317,6 @@ fi
 #    cp -rf ${baseAospWifiResOverlay} ${portAospWifiResOverlay}
 #fi
 
-baseDevicesAndroidOverlay=$(find build/baserom/images/product -type f -name "DevicesAndroidOverlay.apk")
-portDevicesAndroidOverlay=$(find build/portrom/images/product -type f -name "DevicesAndroidOverlay.apk")
-if [ -f "${baseDevicesAndroidOverlay}" ] && [ -f "${portDevicesAndroidOverlay}" ];then
-    blue "正在替换 [DevicesAndroidOverlay.apk]" "Replacing [DevicesAndroidOverlay.apk]"
-    cp -rf ${baseDevicesAndroidOverlay} ${portDevicesAndroidOverlay}
-fi
-
-baseDevicesOverlay=$(find build/baserom/images/product -type f -name "DevicesOverlay.apk")
-portDevicesOverlay=$(find build/portrom/images/product -type f -name "DevicesOverlay.apk")
-if [ -f "${baseDevicesOverlay}" ] && [ -f "${portDevicesOverlay}" ];then
-    blue "正在替换 [DevicesOverlay.apk]" "Replacing [DevicesOverlay.apk]"
-    cp -rf ${baseDevicesOverlay} ${portDevicesOverlay}
-fi
-
-baseSettingsRroDeviceHideStatusBarOverlay=$(find build/baserom/images/product -type f -name "SettingsRroDeviceHideStatusBarOverlay.apk")
-portSettingsRroDeviceHideStatusBarOverlay=$(find build/portrom/images/product -type f -name "SettingsRroDeviceHideStatusBarOverlay.apk")
-if [ -f "${baseSettingsRroDeviceHideStatusBarOverlay}" ] && [ -f "${portSettingsRroDeviceHideStatusBarOverlay}" ];then
-    blue "正在替换 [SettingsRroDeviceHideStatusBarOverlay.apk]" "Replacing [SettingsRroDeviceHideStatusBarOverlay.apk]"
-    cp -rf ${baseSettingsRroDeviceHideStatusBarOverlay} ${portSettingsRroDeviceHideStatusBarOverlay}
-fi
-
-baseMiuiBiometricResOverlay=$(find build/baserom/images/product -type f -name "MiuiBiometricResOverlay.apk")
-portMiuiBiometricResOverlay=$(find build/portrom/images/product -type f -name "MiuiBiometricResOverlay.apk")
-if [ -f "${baseMiuiBiometricResOverlay}" ] && [ -f "${portMiuiBiometricResOverlay}" ];then
-    blue "正在替换 [MiuiBiometricResOverlay.apk]" "Replacing [MiuiBiometricResOverlay.apk]"
-    cp -rf ${baseMiuiBiometricResOverlay} ${portMiuiBiometricResOverlay}
-fi
 
 # radio lib
 # blue "信号相关"
