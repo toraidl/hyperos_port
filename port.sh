@@ -136,9 +136,7 @@ find . -type d -name 'hyperos_*' |xargs rm -rf
 
 green "文件清理完毕" "Files cleaned up."
 mkdir -p build/baserom/images/
-
 mkdir -p build/portrom/images/
-
 
 # 提取分区
 if [[ ${baserom_type} == 'payload' ]];then
@@ -153,7 +151,7 @@ elif [[ ${is_base_rom_eu} == true ]];then
     blue "正在提取底包 [super.img]" "Extracting files from BASETROM [super.img]"
     unzip ${baserom} 'images/*' -d build/baserom >  /dev/null 2>&1 ||error "解压移植包 [super.img] 时出错"  "Extracting [super.img] error"
     blue "合并super.img* 到super.img" "Merging super.img.* into super.img"
-    simg2img build/baserom/images/super.img.* build/baserom/images/super.img
+    ${tools_dir}/simg2img build/baserom/images/super.img.* build/baserom/images/super.img
     rm -rf build/baserom/images/super.img.*
     mv build/baserom/images/super.img build/baserom/super.img
     green "底包 [super.img] 提取完毕" "[super.img] extracted."
@@ -166,7 +164,7 @@ if [[ ${is_eu_rom} == true ]];then
     blue "正在提取移植包 [super.img]" "Extracting files from PORTROM [super.img]"
     unzip ${portrom} 'images/super.img.*' -d build/portrom >  /dev/null 2>&1 ||error "解压移植包 [super.img] 时出错"  "Extracting [super.img] error"
     blue "合并super.img* 到super.img" "Merging super.img.* into super.img"
-    simg2img build/portrom/images/super.img.* build/portrom/images/super.img
+    ${tools_dir}/simg2img build/portrom/images/super.img.* build/portrom/images/super.img
     rm -rf build/portrom/images/super.img.*
     mv build/portrom/images/super.img build/portrom/super.img
     green "移植包 [super.img] 提取完毕" "[super.img] extracted."
@@ -190,20 +188,20 @@ elif [[ ${is_base_rom_eu} == true ]];then
 elif [[ ${baserom_type} == 'br' ]];then
     blue "开始分解底包 [new.dat.br]" "Unpacking BASEROM[new.dat.br]"
         for i in ${super_list}; do 
-            ${tools_dir}/brotli -d build/baserom/$i.new.dat.br >/dev/null 2>&1
-            sudo python3 ${tools_dir}/sdat2img.py build/baserom/$i.transfer.list build/baserom/$i.new.dat build/baserom/images/$i.img >/dev/null 2>&1
+            ${tools_dir}/brotli -d build/baserom/$i.new.dat.br
+            sudo python3 ${work_dir}/bin/sdat2img.py build/baserom/$i.transfer.list build/baserom/$i.new.dat build/baserom/images/$i.img
             rm -rf build/baserom/$i.new.dat* build/baserom/$i.transfer.list build/baserom/$i.patch.*
         done
 fi
 
 for part in system system_dlkm system_ext product product_dlkm mi_ext ;do
     if [[ -f build/baserom/images/${part}.img ]];then 
-        if [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "ext" ]];then
+        if [[ $(python3 ${work_dir}/bin/gettype.py build/baserom/images/${part}.img) == "ext" ]];then
             blue "正在分解底包 ${part}.img [ext]" "Extracing ${part}.img [ext] from BASEROM"
-            sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img build/baserom/images/ >/dev/null 2>&1
+            sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img build/baserom/images/
             blue "分解底包 [${part}.img] 完成" "BASEROM ${part}.img [ext] extracted."
             rm -rf build/baserom/images/${part}.img      
-        elif [[ $($tools_dir/gettype -i build/baserom/images/${part}.img) == "erofs" ]]; then
+        elif [[ $(python3 ${work_dir}/bin/gettype.py build/baserom/images/${part}.img) == "erofs" ]]; then
             pack_type=EROFS
             blue "正在分解底包 ${part}.img [erofs]" "Extracing ${part}.img [erofs] from BASEROM"
             extract.erofs -x -i build/baserom/images/${part}.img  -o build/baserom/images/ > /dev/null 2>&1 || error "分解 ${part}.img 失败" "Extracting ${part}.img failed."
@@ -240,13 +238,13 @@ for part in ${super_list};do
     if [ -f "${work_dir}/build/portrom/images/${part}.img" ];then
         blue "开始提取 ${part}.img" "Extracting ${part}.img"
         
-        if [[ $($tools_dir/gettype -i build/portrom/images/${part}.img) == "ext" ]];then
+        if [[ $(python3 ${work_dir}/bin/gettype.py build/portrom/images/${part}.img) == "ext" ]];then
             pack_type=EXT
             python3 bin/imgextractor/imgextractor.py build/portrom/images/${part}.img build/portrom/images/ > /dev/null 2>&1 || error "提取${part}失败" "Extracting partition ${part} failed"
             mkdir -p build/portrom/images/${part}/lost+found
             rm -rf build/portrom/images/${part}.img
             green "提取 [${part}] [ext]镜像完毕" "Extracting [${part}].img [ext] done"
-        elif [[ $(gettype -i build/portrom/images/${part}.img) == "erofs" ]];then
+        elif [[ $(python3 ${work_dir}/bin/gettype.py build/portrom/images/${part}.img) == "erofs" ]];then
             pack_type=EROFS
             green "移植包为 [erofs] 文件系统" "PORTROM filesystem: [erofs]. "
             [ "${repackext4}" = "true" ] && pack_type=EXT
@@ -299,23 +297,16 @@ if grep -q "ro.build.ab_update=true" build/portrom/images/vendor/build.prop;  th
     is_ab_device=true
 else
     is_ab_device=false
-
 fi
-
-baseAospFrameworkResOverlay=$(find build/baserom/images/product -type f -name "AospFrameworkResOverlay.apk")
-portAospFrameworkResOverlay=$(find build/portrom/images/product -type f -name "AospFrameworkResOverlay.apk")
-if [ -f "${baseAospFrameworkResOverlay}" ] && [ -f "${portAospFrameworkResOverlay}" ];then
-    blue "正在替换 [AospFrameworkResOverlay.apk]" "Replacing [AospFrameworkResOverlay.apk]" 
-    cp -rf ${baseAospFrameworkResOverlay} ${portAospFrameworkResOverlay}
-fi
-
-
-baseMiuiFrameworkResOverlay=$(find build/baserom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
-portMiuiFrameworkResOverlay=$(find build/portrom/images/product -type f -name "MiuiFrameworkResOverlay.apk")
-if [ -f ${baseMiuiFrameworkResOverlay} ] && [ -f ${portMiuiFrameworkResOverlay} ];then
-    blue "正在替换 [MiuiFrameworkResOverlay.apk]" "Replacing [MiuiFrameworkResOverlay.apk]" 
-    cp -rf ${baseMiuiFrameworkResOverlay} ${portMiuiFrameworkResOverlay}
-fi
+for cpfile in "AospFrameworkResOverlay.apk" "MiuiFrameworkResOverlay.apk" "DevicesAndroidOverlay.apk" "DevicesOverlay.apk" "SettingsRroDeviceHideStatusBarOverlay.apk" "MiuiBiometricResOverlay.apk"
+do
+  base_file=$(find build/baserom/images/product -type f -name "$cpfile")
+  port_file=$(find build/portrom/images/product -type f -name "$cpfile")
+  if [ -f "${base_file}" ] && [ -f "${port_file}" ];then
+    blue "正在替换 [$cpfile]" "Replacing [$cpfile]"
+    cp -rf ${base_file} ${port_file}
+  fi
+done
 
 #baseAospWifiResOverlay=$(find build/baserom/images/product -type f -name "AospWifiResOverlay.apk")
 ##portAospWifiResOverlay=$(find build/portrom/images/product -type f -name "AospWifiResOverlay.apk")
@@ -324,33 +315,6 @@ fi
 #    cp -rf ${baseAospWifiResOverlay} ${portAospWifiResOverlay}
 #fi
 
-baseDevicesAndroidOverlay=$(find build/baserom/images/product -type f -name "DevicesAndroidOverlay.apk")
-portDevicesAndroidOverlay=$(find build/portrom/images/product -type f -name "DevicesAndroidOverlay.apk")
-if [ -f "${baseDevicesAndroidOverlay}" ] && [ -f "${portDevicesAndroidOverlay}" ];then
-    blue "正在替换 [DevicesAndroidOverlay.apk]" "Replacing [DevicesAndroidOverlay.apk]"
-    cp -rf ${baseDevicesAndroidOverlay} ${portDevicesAndroidOverlay}
-fi
-
-baseDevicesOverlay=$(find build/baserom/images/product -type f -name "DevicesOverlay.apk")
-portDevicesOverlay=$(find build/portrom/images/product -type f -name "DevicesOverlay.apk")
-if [ -f "${baseDevicesOverlay}" ] && [ -f "${portDevicesOverlay}" ];then
-    blue "正在替换 [DevicesOverlay.apk]" "Replacing [DevicesOverlay.apk]"
-    cp -rf ${baseDevicesOverlay} ${portDevicesOverlay}
-fi
-
-baseSettingsRroDeviceHideStatusBarOverlay=$(find build/baserom/images/product -type f -name "SettingsRroDeviceHideStatusBarOverlay.apk")
-portSettingsRroDeviceHideStatusBarOverlay=$(find build/portrom/images/product -type f -name "SettingsRroDeviceHideStatusBarOverlay.apk")
-if [ -f "${baseSettingsRroDeviceHideStatusBarOverlay}" ] && [ -f "${portSettingsRroDeviceHideStatusBarOverlay}" ];then
-    blue "正在替换 [SettingsRroDeviceHideStatusBarOverlay.apk]" "Replacing [SettingsRroDeviceHideStatusBarOverlay.apk]"
-    cp -rf ${baseSettingsRroDeviceHideStatusBarOverlay} ${portSettingsRroDeviceHideStatusBarOverlay}
-fi
-
-baseMiuiBiometricResOverlay=$(find build/baserom/images/product -type f -name "MiuiBiometricResOverlay.apk")
-portMiuiBiometricResOverlay=$(find build/portrom/images/product -type f -name "MiuiBiometricResOverlay.apk")
-if [ -f "${baseMiuiBiometricResOverlay}" ] && [ -f "${portMiuiBiometricResOverlay}" ];then
-    blue "正在替换 [MiuiBiometricResOverlay.apk]" "Replacing [MiuiBiometricResOverlay.apk]"
-    cp -rf ${baseMiuiBiometricResOverlay} ${portMiuiBiometricResOverlay}
-fi
 
 # radio lib
 # blue "信号相关"
@@ -459,7 +423,7 @@ if [[ -f $targetAospFrameworkResOverlay ]]; then
     filename=$(basename $targetAospFrameworkResOverlay)
     yellow "Change defaultPeakRefreshRate: $filename ..."
     targetDir=$(echo "$filename" | sed 's/\..*$//')
-    bin/apktool/apktool d $targetAospFrameworkResOverlay -o tmp/$targetDir -f > /dev/null 2>&1
+    bin/apktool/apktool d $targetAospFrameworkResOverlay -o tmp/$targetDir -f
 
     for xml in $(find tmp/$targetDir -type f -name "integers.xml");do
         # magic: Change DefaultPeakRefrshRate to 60 
@@ -558,7 +522,7 @@ else
     mkdir -p tmp/services/
     cp -rf build/portrom/images/system/system/framework/services.jar tmp/services/services.jar
     
-    7z x -y tmp/services/services.jar *.dex -otmp/services > /dev/null 2>&1
+    7z x -y tmp/services/services.jar *.dex -otmp/services
     target_method='getMinimumSignatureSchemeVersionForTargetSdk' 
     for dexfile in tmp/services/*.dex;do
         smali_fname=${dexfile%.*}
@@ -589,8 +553,8 @@ else
         blue "反编译成功，开始回编译 $smali_dir"
         java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/services/${smali_dir} -o tmp/services/${smali_dir}.dex
         pushd tmp/services/ > /dev/null 2>&1
-        7z a -y -mx0 -tzip services.jar ${smali_dir}.dex > /dev/null 2>&1
-        popd > /dev/null 2>&1
+        7z a -y -mx0 -tzip services.jar ${smali_dir}.dex
+        popd
     done
     
     cp -rf tmp/services/services.jar build/portrom/images/system/system/framework/services.jar
@@ -647,11 +611,11 @@ else
         fi
     done
     rm -rf build/portrom/images/product/etc/auto-install*
-    rm -rf build/portrom/images/product/data-app/*GalleryLockscreen* >/dev/null 2>&1
+    rm -rf build/portrom/images/product/data-app/*GalleryLockscreen*
     mkdir -p tmp/app
     kept_data_apps=("DownloadProviderUi" "VirtualSim" "ThirdAppAssistant" "GameCenter" "Video" "Weather" "DeskClock" "Gallery" "SoundRecorder" "ScreenRecorder" "Calculator" "CleanMaster" "Calendar" "Compass" "Notes" "MediaEditor" "Scanner" "SpeechEngine" "wps-lite")
     for app in "${kept_data_apps[@]}"; do
-        mv build/portrom/images/product/data-app/*"${app}"* tmp/app/ >/dev/null 2>&1
+        mv build/portrom/images/product/data-app/*"${app}"* tmp/app/
         done
 
     rm -rf build/portrom/images/product/data-app/*
@@ -1129,7 +1093,7 @@ if [[ "$is_ab_device" == false ]];then
 
     #disable vbmeta
     for img in $(find out/${os_type}_${device_code}_${port_rom_version}/firmware-update -type f -name "vbmeta*.img");do
-        python3 bin/patch-vbmeta.py ${img} > /dev/null 2>&1
+        python3 bin/patch-vbmeta.py ${img}
     done
     cp -f build/baserom/boot.img out/${os_type}_${device_code}_${port_rom_version}/boot_official.img
     cp -rf bin/flash/a-only/update-binary out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
@@ -1187,10 +1151,10 @@ else
 fi
 
 find out/${os_type}_${device_code}_${port_rom_version} |xargs touch
-pushd out/${os_type}_${device_code}_${port_rom_version}/ >/dev/null || exit
+pushd out/${os_type}_${device_code}_${port_rom_version}/ || exit
 zip -r ${os_type}_${device_code}_${port_rom_version}.zip ./*
 mv ${os_type}_${device_code}_${port_rom_version}.zip ../
-popd >/dev/null || exit
+popd || exit
 pack_timestamp=$(date +"%m%d%H%M")
 hash=$(md5sum out/${os_type}_${device_code}_${port_rom_version}.zip |head -c 10)
 if [[ $pack_type == "EROFS" ]];then
