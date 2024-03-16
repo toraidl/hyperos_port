@@ -136,9 +136,7 @@ find . -type d -name 'hyperos_*' |xargs rm -rf
 
 green "文件清理完毕" "Files cleaned up."
 mkdir -p build/baserom/images/
-
 mkdir -p build/portrom/images/
-
 
 # 提取分区
 if [[ ${baserom_type} == 'payload' ]];then
@@ -200,7 +198,7 @@ for part in system system_dlkm system_ext product product_dlkm mi_ext ;do
     if [[ -f build/baserom/images/${part}.img ]];then 
         if [[ $(python3 ${work_dir}/bin/gettype.py build/baserom/images/${part}.img) == "ext" ]];then
             blue "正在分解底包 ${part}.img [ext]" "Extracing ${part}.img [ext] from BASEROM"
-            sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img build/baserom/images/ >/dev/null 2>&1
+            sudo python3 bin/imgextractor/imgextractor.py build/baserom/images/${part}.img build/baserom/images/
             blue "分解底包 [${part}.img] 完成" "BASEROM ${part}.img [ext] extracted."
             rm -rf build/baserom/images/${part}.img      
         elif [[ $(python3 ${work_dir}/bin/gettype.py build/baserom/images/${part}.img) == "erofs" ]]; then
@@ -425,7 +423,7 @@ if [[ -f $targetAospFrameworkResOverlay ]]; then
     filename=$(basename $targetAospFrameworkResOverlay)
     yellow "Change defaultPeakRefreshRate: $filename ..."
     targetDir=$(echo "$filename" | sed 's/\..*$//')
-    bin/apktool/apktool d $targetAospFrameworkResOverlay -o tmp/$targetDir -f > /dev/null 2>&1
+    bin/apktool/apktool d $targetAospFrameworkResOverlay -o tmp/$targetDir -f
 
     for xml in $(find tmp/$targetDir -type f -name "integers.xml");do
         # magic: Change DefaultPeakRefrshRate to 60 
@@ -524,7 +522,7 @@ else
     mkdir -p tmp/services/
     cp -rf build/portrom/images/system/system/framework/services.jar tmp/services/services.jar
     
-    7z x -y tmp/services/services.jar *.dex -otmp/services > /dev/null 2>&1
+    7z x -y tmp/services/services.jar *.dex -otmp/services
     target_method='getMinimumSignatureSchemeVersionForTargetSdk' 
     for dexfile in tmp/services/*.dex;do
         smali_fname=${dexfile%.*}
@@ -555,8 +553,8 @@ else
         blue "反编译成功，开始回编译 $smali_dir"
         java -jar bin/apktool/smali.jar a --api ${port_android_sdk} tmp/services/${smali_dir} -o tmp/services/${smali_dir}.dex
         pushd tmp/services/ > /dev/null 2>&1
-        7z a -y -mx0 -tzip services.jar ${smali_dir}.dex > /dev/null 2>&1
-        popd > /dev/null 2>&1
+        7z a -y -mx0 -tzip services.jar ${smali_dir}.dex
+        popd
     done
     
     cp -rf tmp/services/services.jar build/portrom/images/system/system/framework/services.jar
@@ -613,11 +611,11 @@ else
         fi
     done
     rm -rf build/portrom/images/product/etc/auto-install*
-    rm -rf build/portrom/images/product/data-app/*GalleryLockscreen* >/dev/null 2>&1
+    rm -rf build/portrom/images/product/data-app/*GalleryLockscreen*
     mkdir -p tmp/app
     kept_data_apps=("DownloadProviderUi" "VirtualSim" "ThirdAppAssistant" "GameCenter" "Video" "Weather" "DeskClock" "Gallery" "SoundRecorder" "ScreenRecorder" "Calculator" "CleanMaster" "Calendar" "Compass" "Notes" "MediaEditor" "Scanner" "SpeechEngine" "wps-lite")
     for app in "${kept_data_apps[@]}"; do
-        mv build/portrom/images/product/data-app/*"${app}"* tmp/app/ >/dev/null 2>&1
+        mv build/portrom/images/product/data-app/*"${app}"* tmp/app/
         done
 
     rm -rf build/portrom/images/product/data-app/*
@@ -1095,7 +1093,7 @@ if [[ "$is_ab_device" == false ]];then
 
     #disable vbmeta
     for img in $(find out/${os_type}_${device_code}_${port_rom_version}/firmware-update -type f -name "vbmeta*.img");do
-        python3 bin/patch-vbmeta.py ${img} > /dev/null 2>&1
+        python3 bin/patch-vbmeta.py ${img}
     done
     cp -f build/baserom/boot.img out/${os_type}_${device_code}_${port_rom_version}/boot_official.img
     cp -rf bin/flash/a-only/update-binary out/${os_type}_${device_code}_${port_rom_version}/META-INF/com/google/android/
@@ -1153,10 +1151,10 @@ else
 fi
 
 find out/${os_type}_${device_code}_${port_rom_version} |xargs touch
-pushd out/${os_type}_${device_code}_${port_rom_version}/ >/dev/null || exit
+pushd out/${os_type}_${device_code}_${port_rom_version}/ || exit
 zip -r ${os_type}_${device_code}_${port_rom_version}.zip ./*
 mv ${os_type}_${device_code}_${port_rom_version}.zip ../
-popd >/dev/null || exit
+popd || exit
 pack_timestamp=$(date +"%m%d%H%M")
 hash=$(md5sum out/${os_type}_${device_code}_${port_rom_version}.zip |head -c 10)
 if [[ $pack_type == "EROFS" ]];then
