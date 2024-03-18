@@ -160,6 +160,10 @@ elif [[ ${is_base_rom_eu} == true ]];then
     mv build/baserom/images/boot.img build/baserom/
     mkdir -p build/baserom/firmware-update
     mv build/baserom/images/* build/baserom/firmware-update
+    if [[ -f build/baserom/firmware-update/cust.img.0 ]];then
+        simg2img build/baserom/firmware-update/cust.img.* build/baserom/firmware-update/cust.img
+        rm -rf build/baserom/firmware-update/cust.img.*
+    fi
 fi
 
 if [[ ${is_eu_rom} == true ]];then
