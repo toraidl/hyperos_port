@@ -93,8 +93,8 @@ check() {
 # $4: Replacement value
 patch_smali() {
     targetfilefullpath=$(find build/portrom/images -type f -name $1)
-    targetfilename=$(basename $targetfilefullpath)
     if [ -f $targetfilefullpath ];then
+        targetfilename=$(basename $targetfilefullpath)
         yellow "正在修改 $targetfilename" "Modifying $targetfilename"
         foldername=${targetfilename%.*}
         rm -rf tmp/$foldername/
@@ -139,6 +139,8 @@ patch_smali() {
                 cp -rf tmp/$foldername/$targetfilename ${targetfilefullpath}
             fi
         fi
+    else
+        error "Failed to find $1,please check it manually".
     fi
 
 }
@@ -187,3 +189,16 @@ update_netlink() {
   fi
 }
 
+disable_avb_verify() {
+    fstab = $1
+    blue "Disabling avb_verify: $fstab"
+    if [[ -f $fstab ]]; then
+        yellow "$fstab not found, please check it manually"
+    else
+        sed -i "s/,avb_keys=.*avbpubkey//g" $fstab
+        sed -i "s/,avb=vbmeta_system//g" $fstab
+        sed -i "s/,avb=vbmeta_vendor//g" $fstab
+        sed -i "s/,avb=vbmeta//g" $fstab
+        sed -i "s/,avb//g" $fstab
+    fi
+}
