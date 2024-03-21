@@ -190,9 +190,9 @@ update_netlink() {
 }
 
 disable_avb_verify() {
-    fstab = $1
+    fstab=$1
     blue "Disabling avb_verify: $fstab"
-    if [[ -f $fstab ]]; then
+    if [[ ! -f $fstab ]]; then
         yellow "$fstab not found, please check it manually"
     else
         sed -i "s/,avb_keys=.*avbpubkey//g" $fstab
